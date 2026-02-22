@@ -27,14 +27,14 @@ public class EmailService {
         Reserva r = pago.getReserva();
         String cuerpo = String.format(
             "FACTURA DE PAGO - Novost\n\n" +
-            "Cliente: %s %s\n" +
+            "Cliente: %s\n" +
             "Empresa: Novost SAS\n" +
             "Fecha Reserva: %s\n" +
             "Horario: %s a %s\n" +
             "Monto Pagado: $%s\n" +
             "ID Transacción: %s\n\n" +
             "¡Gracias por su preferencia!",
-            r.getUsuario().getNombre(), r.getUsuario().getApellido(),
+            r.getUsuario().getNombre(),
             r.getFecha(), r.getHoraInicio(), r.getHoraFin(),
             pago.getMonto(), pago.getIdPasarela()
         );
