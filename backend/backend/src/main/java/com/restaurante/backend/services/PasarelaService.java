@@ -1,5 +1,8 @@
 package com.restaurante.backend.services;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -25,7 +28,7 @@ public class PasarelaService {
      * Crea un PaymentIntent en Stripe y devuelve la información necesaria
      * para que el frontend complete el pago.
      */
-    public String crearIntentoPago(Double monto, String moneda, Long idReserva) {
+    public Map<String, String> crearIntentoPago(Double monto, String moneda, Long idReserva) {
         try {
             // 1. Validación de seguridad básica
             if (monto <= 0) {
@@ -51,9 +54,11 @@ public class PasarelaService {
             // 4. Llamada a la API de Stripe
             PaymentIntent intent = PaymentIntent.create(params);
             
-            // Retornamos el client_secret, que es la "llave" para que el frontend
-            // pueda renderizar el formulario de pago de forma segura.
-            return intent.getClientSecret();
+            Map<String, String> respuesta = new HashMap<>();
+            respuesta.put("idPasarela", intent.getId()); // El "pi_..." (CORRECTO PARA REEMBOLSOS)
+            respuesta.put("clientSecret", intent.getClientSecret());
+
+            return respuesta;
 
         } catch (StripeException e) {
             System.err.println("Error al comunicarse con Stripe: " + e.getMessage());

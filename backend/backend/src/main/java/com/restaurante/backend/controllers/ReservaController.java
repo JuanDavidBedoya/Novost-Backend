@@ -44,4 +44,13 @@ public class ReservaController {
         
         return ResponseEntity.ok(pagoRealizado);
     }
+
+    @PostMapping("/{id}/cancelar")
+    public ResponseEntity<ReservaResponseDTO> cancelarReserva(@PathVariable Long id) {
+        // Llamamos al servicio para ejecutar la lógica de negocio
+        ReservaResponseDTO response = reservaService.cancelarReserva(id);
+        
+        // Retornamos la reserva actualizada con su nuevo estado
+        return ResponseEntity.ok(response);
+    }
 }

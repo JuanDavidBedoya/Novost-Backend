@@ -2,6 +2,7 @@ package com.restaurante.backend.services;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -40,10 +41,23 @@ public class ReservaService {
     private final PagoMapper pagoMapper;
     private final EmailService emailService;
 
+    private static final LocalTime HORA_APERTURA = LocalTime.of(12, 00); // 12:00 PM
+    private static final LocalTime HORA_CIERRE = LocalTime.of(23, 59); // 11:59 PM
+
     @Transactional
     public ReservaResponseDTO crearReserva(ReservaRequestDTO dto) {
         // 1. DTO -> Entidad (El mapper ya busca al Usuario por cédula)
         Reserva reserva = reservaMapper.toEntity(dto);
+
+        LocalTime horaDeseada = dto.getHoraInicio();
+
+        if (horaDeseada.isBefore(HORA_APERTURA)) {
+            throw new RuntimeException("Por favor seleccione una hora de reserva entre las 12:00 y las 00:00.");
+        }
+
+        if (horaDeseada.isAfter(HORA_CIERRE)) {
+            throw new RuntimeException("Por favor seleccione una hora de reserva entre las 12:00 y las 00:00.");
+        }
 
         // 2. Lógica de negocio: Calcular hora fin (Inicio + 2 horas)
         reserva.setHoraFin(reserva.getHoraInicio().plusHours(2));
@@ -68,13 +82,22 @@ public class ReservaService {
 
         Reserva guardada = reservaRepo.save(reserva);
 
-        // 6. Enviar correo de confirmación
-        emailService.enviarCorreo(
-            guardada.getUsuario().getEmail(),
-            "Reserva Recibida - Novost",
-            "Hola " + guardada.getUsuario().getNombre() + ", su reserva ha sido registrada.\n" +
-            "Recuerde que tiene hasta 24 horas antes del " + guardada.getFecha() + " para pagar."
+        String emailDestino = guardada.getUsuario().getEmail();
+        String nombreCliente = guardada.getUsuario().getNombre();
+        LocalDate fecha = guardada.getFecha();
+        LocalTime horaInicio = guardada.getHoraInicio(); // Obtenemos la hora
+
+        String cuerpo = String.format(
+            "Hola %s, su reserva ha sido registrada.\n\n" +
+            "Detalles de su reserva:\n" +
+            "- Fecha: %s\n" +
+            "- Hora de inicio: %s\n\n" + 
+            "Recuerde que tiene hasta 24 horas antes para realizar el pago y confirmar su asistencia.",
+            nombreCliente, fecha, horaInicio, fecha
         );
+
+        // Enviamos al correo real del usuario
+        emailService.enviarCorreo(emailDestino, "Confirmación de Reserva - Novost", cuerpo);
 
         // 7. Entidad -> DTO de respuesta
         return reservaMapper.toResponseDTO(guardada);
@@ -108,33 +131,49 @@ public class ReservaService {
     }
 
     @Transactional
-    public void cancelarReserva(Long idReserva) {
+    public ReservaResponseDTO cancelarReserva(Long idReserva) {
+        // 1. Buscar la reserva
         Reserva reserva = reservaRepo.findById(idReserva)
                 .orElseThrow(() -> new RuntimeException("Reserva no encontrada"));
 
+        // 2. Validación de fecha
         if (reserva.getFecha().isBefore(LocalDate.now())) {
-            throw new RuntimeException("No se pueden cancelar ni reembolsar reservas de fechas pasadas.");
+            throw new RuntimeException("No se pueden cancelar reservas de fechas pasadas.");
         }
 
-        // 1. Verificar y procesar reembolso si existe pago
+        // 3. Procesar Reembolso si existe un pago asociado
         pagoRepo.findByReserva(reserva).ifPresent(pago -> {
+            // Suponiendo que tienes esta lógica o el servicio de pasarela inyectado
             boolean reembolsoExitoso = ejecutarReembolsoStripe(pago.getIdPasarela(), pago.getMonto());
+            
             if (!reembolsoExitoso) {
                 throw new RuntimeException("Error al procesar la devolución en Stripe");
             }
+            
             pago.setIdEstadoPago("REEMBOLSADO");
             pagoRepo.save(pago);
         });
 
-        // 2. Cambiar estado a CANCELADA
+        // 4. Cambiar estado a CANCELADA
         EstadoReserva estadoCancelado = estadoRepo.findByNombre("CANCELADA")
-                .orElseThrow(() -> new RuntimeException("Estado CANCELADA no configurado"));
+                .orElseThrow(() -> new RuntimeException("Estado CANCELADA no configurado en la base de datos"));
         
         reserva.setEstadoReserva(estadoCancelado);
-        reservaRepo.save(reserva);
+        Reserva guardada = reservaRepo.save(reserva);
 
-        // 3. Notificar por correo
-        emailService.enviarCorreo(reserva.getUsuario().getEmail(), "Reserva Cancelada", "Su reserva ha sido cancelada y el reembolso procesado.");
+        // 5. Notificar por correo al usuario real
+        String cuerpoEmail = String.format(
+            "Hola %s, le confirmamos que su reserva para el día %s a las %s ha sido cancelada.\n" +
+            "Si realizó un pago previo, el reembolso ha sido solicitado a su entidad bancaria.",
+            reserva.getUsuario().getNombre(), 
+            reserva.getFecha(), 
+            reserva.getHoraInicio()
+        );
+        
+        emailService.enviarCorreo(reserva.getUsuario().getEmail(), "Cancelación de Reserva - Novost", cuerpoEmail);
+
+        // 6. Retornar el DTO usando tu mapper
+        return reservaMapper.toDto(guardada);
     }
 
     private boolean ejecutarReembolsoStripe(String idPasarela, Double monto) {
@@ -145,6 +184,8 @@ public class ReservaService {
             Refund refund = Refund.create(params);
             return "succeeded".equals(refund.getStatus());
         } catch (StripeException e) {
+            System.err.println("MENSAJE DE STRIPE: " + e.getMessage());
+            System.err.println("TIPO DE ERROR: " + e.getCode());
             return false;
         }
     }
