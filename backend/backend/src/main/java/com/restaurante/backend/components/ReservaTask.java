@@ -8,7 +8,9 @@ import java.util.List;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import com.restaurante.backend.entities.EstadoReserva;
 import com.restaurante.backend.entities.Reserva;
+import com.restaurante.backend.repositories.EstadoReservaRepository;
 import com.restaurante.backend.repositories.ReservaRepository;
 import com.restaurante.backend.services.EmailService;
 
@@ -20,44 +22,62 @@ import lombok.RequiredArgsConstructor;
 public class ReservaTask {
 
     private final ReservaRepository reservaRepo;
-
+    private final EstadoReservaRepository estadoRepo;
     private final EmailService emailService;
 
-    // Recordatorio 12 horas antes
-    @Scheduled(cron = "0 0 * * * *") // Se ejecuta cada hora al minuto 0
+    /**
+     * Recordatorio 12 horas antes.
+     * Se ejecuta cada hora para revisar qué reservas inician en el bloque de 12 horas a futuro.
+     */
+    @Scheduled(cron = "0 0 * * * *")
     public void enviarRecordatorios12Horas() {
-        // Calculamos el momento exacto de aquí a 12 horas
         LocalDateTime ahoraMas12 = LocalDateTime.now().plusHours(12);
         LocalDate fechaBusqueda = ahoraMas12.toLocalDate();
         
-        // Definimos una ventana de 1 hora para capturar las reservas
+        // Ventana de captura (para asegurar que no se salte ninguna por segundos)
         LocalTime inicioVentana = ahoraMas12.toLocalTime().withMinute(0).withSecond(0);
         LocalTime finVentana = inicioVentana.plusHours(1);
 
         List<Reserva> proximas = reservaRepo.findReservasParaRecordatorio(fechaBusqueda, inicioVentana, finVentana);
 
         proximas.forEach(r -> {
-            emailService.enviarCorreo(
+            // Usamos el método especializado del EmailService
+            emailService.enviarRecordatorio(
                 r.getUsuario().getEmail(),
-                "Recordatorio de tu reserva - Novost",
-                "Hola " + r.getUsuario().getNombre() + ", te recordamos tu reserva para hoy a las " + r.getHoraInicio() + ". ¡Te esperamos!"
+                r.getUsuario().getNombre(),
+                r.getFecha(),
+                r.getHoraInicio()
             );
         });
     }
 
-    // Se ejecuta cada hora (cron: segundos minutos horas día mes día-semana)
+    /**
+     * Cancelación automática por impago.
+     * Se ejecuta cada hora para cancelar reservas que están a menos de 24h de iniciar y siguen PENDIENTES.
+     */
     @Scheduled(cron = "0 0 * * * *")
     @Transactional
     public void cancelarReservasNoPagadas() {
-        LocalDate limite = LocalDate.now().plusDays(1);
-        List<Reserva> vencidas = reservaRepo.findReservasNoPagadasVencidas(limite);
+        // Buscamos el objeto estado "CANCELADA" de la base de datos
+        EstadoReserva estadoCancelado = estadoRepo.findByNombre("CANCELADA")
+                .orElseThrow(() -> new RuntimeException("Estado CANCELADA no configurado en BD"));
+
+        // Límite: Reservas que ocurren mañana (a 24h de distancia)
+        LocalDate fechaLimite = LocalDate.now().plusDays(1);
+        List<Reserva> vencidas = reservaRepo.findReservasNoPagadasVencidas(fechaLimite);
 
         vencidas.forEach(r -> {
-            r.getEstadoReserva().setNombre("CANCELADA_POR_IMPAGO");
-            emailService.enviarCorreo(r.getUsuario().getEmail(), 
-                "Reserva Cancelada - Novost", 
-                "Su reserva para el día " + r.getFecha() + " ha sido cancelada por falta de pago.");
+            r.setEstadoReserva(estadoCancelado);
+            
+            // Usamos el método de notificación de cancelación del EmailService
+            emailService.enviarNotificacionCancelacion(
+                r.getUsuario().getEmail(),
+                r.getUsuario().getNombre(),
+                "Falta de pago dentro del plazo requerido (24 horas antes del evento)."
+            );
         });
+        
+        // Guardamos los cambios en lote
         reservaRepo.saveAll(vencidas);
     }
 }
