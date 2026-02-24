@@ -44,4 +44,15 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
         @Param("horaInicio") LocalTime horaInicio, 
         @Param("horaFin") LocalTime horaFin
     );
+
+    // Buscar por filtro de fecha, hora y número de personas (todos opcionales)
+    @Query("SELECT r FROM Reserva r WHERE " +
+           "(:fecha IS NULL OR r.fecha = :fecha) AND " +
+           "(:hora IS NULL OR r.horaInicio = :hora) AND " +
+           "(:personas IS NULL OR r.numPersonas = :personas)")
+    List<Reserva> buscarConFiltros(
+        @Param("fecha") LocalDate fecha, 
+        @Param("hora") LocalTime hora, 
+        @Param("personas") Integer personas
+    );
 }

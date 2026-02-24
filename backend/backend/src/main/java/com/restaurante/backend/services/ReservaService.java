@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
@@ -86,14 +87,18 @@ public class ReservaService {
         String nombreCliente = guardada.getUsuario().getNombre();
         LocalDate fecha = guardada.getFecha();
         LocalTime horaInicio = guardada.getHoraInicio(); // Obtenemos la hora
+        String numeroMesa = (guardada.getMesa() != null) 
+            ? String.valueOf(guardada.getMesa().getNumeroMesa()) 
+            : "Asignada al llegar";
 
         String cuerpo = String.format(
             "Hola %s, su reserva ha sido registrada.\n\n" +
             "Detalles de su reserva:\n" +
             "- Fecha: %s\n" +
             "- Hora de inicio: %s\n\n" + 
+            "- Número de Mesa: %s\n" +
             "Recuerde que tiene hasta 24 horas antes para realizar el pago y confirmar su asistencia.",
-            nombreCliente, fecha, horaInicio, fecha
+            nombreCliente, fecha, horaInicio, fecha, numeroMesa
         );
 
         // Enviamos al correo real del usuario
@@ -101,6 +106,14 @@ public class ReservaService {
 
         // 7. Entidad -> DTO de respuesta
         return reservaMapper.toResponseDTO(guardada);
+    }
+    
+    public List<ReservaResponseDTO> buscarReservas(LocalDate fecha, LocalTime hora, Integer personas) {
+        List<Reserva> entidades = reservaRepo.buscarConFiltros(fecha, hora, personas);
+        
+        return entidades.stream()
+                .map(reservaMapper::toDto) // Usando tu mapper ya configurado
+                .collect(Collectors.toList());
     }
 
     @Transactional
