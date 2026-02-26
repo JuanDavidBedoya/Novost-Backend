@@ -39,8 +39,8 @@ public class ReservaService {
 
     // Inyectamos los mappers individuales
     private final ReservaMapper reservaMapper;
-    private final PagoMapper pagoMapper;
     private final EmailService emailService;
+    private final PagoMapper pagoMapper;
 
     private static final LocalTime HORA_APERTURA = LocalTime.of(12, 00); // 12:00 PM
     private static final LocalTime HORA_CIERRE = LocalTime.of(23, 59); // 11:59 PM
@@ -118,26 +118,30 @@ public class ReservaService {
 
     @Transactional
     public PagoResponseDTO procesarPagoReserva(Long idReserva, String idPasarela, Double monto) {
+        // 1. Buscar reserva
         Reserva reserva = reservaRepo.findById(idReserva)
                 .orElseThrow(() -> new RuntimeException("Reserva no encontrada"));
 
-        // Creamos el objeto Pago
+        // 2. Buscar estado
+        EstadoReserva estadoPagada = estadoRepo.findByNombre("PAGADA")
+                .orElseThrow(() -> new RuntimeException("Estado PAGADA no configurado"));
+
+        // 3. Crear el pago con estado "succeeded" para futuros reembolsos
         Pago pago = new Pago();
         pago.setReserva(reserva);
         pago.setIdPasarela(idPasarela);
         pago.setMonto(monto);
         pago.setFechaPago(LocalDateTime.now());
-        pago.setIdEstadoPago("succeeded"); 
+        pago.setEstadoPago("succeeded"); 
 
-        // Actualizamos el estado de la reserva
-        EstadoReserva estadoPagada = estadoRepo.findByNombre("PAGADA")
-                .orElseThrow(() -> new RuntimeException("Estado PAGADA no configurado"));
+        // 4. Actualizar reserva
         reserva.setEstadoReserva(estadoPagada);
+
+        // 5. Guardar
+        Pago pagoGuardado = pagoRepo.save(pago);
         reservaRepo.save(reserva);
 
-        Pago pagoGuardado = pagoRepo.save(pago);
-        
-        // Enviar factura
+        // 6. Email
         emailService.enviarFactura(pagoGuardado);
 
         return pagoMapper.toResponseDTO(pagoGuardado);
@@ -163,7 +167,7 @@ public class ReservaService {
                 throw new RuntimeException("Error al procesar la devolución en Stripe");
             }
             
-            pago.setIdEstadoPago("REEMBOLSADO");
+            pago.setEstadoPago("refunded");
             pagoRepo.save(pago);
         });
 

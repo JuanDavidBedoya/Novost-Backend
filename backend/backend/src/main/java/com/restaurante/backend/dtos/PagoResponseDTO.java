@@ -17,7 +17,7 @@ public class PagoResponseDTO {
     private Long idPago;
     private Long idReserva;
     private String idPasarela;
-    private String idEstadoPago;
+    private String estadoPago;
     private LocalDateTime fechaPago;
     private Double monto;
 }

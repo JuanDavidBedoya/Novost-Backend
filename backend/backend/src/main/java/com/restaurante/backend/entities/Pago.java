@@ -25,8 +25,8 @@ public class Pago {
     @Column(name = "id_pasarela")
     private String idPasarela;
 
-    @Column(name = "id_estado_pago")
-    private String idEstadoPago;
+    @Column(name = "estado_pago")
+    private String estadoPago;
 
     @Column(name = "fecha_pago")
     private LocalDateTime fechaPago;

@@ -35,7 +35,7 @@ public class PagoService {
 
         // 2. Crear y guardar el Pago usando el mapper
         Pago pago = pagoMapper.toEntity(dto);
-        pago.setIdEstadoPago("succeeded");
+        pago.setEstadoPago("succeeded");
         pago.setFechaPago(LocalDateTime.now());
         Pago pagoGuardado = pagoRepo.save(pago);
 

@@ -34,7 +34,7 @@ public class PagoMapper {
             pago.getIdPago(),
             pago.getReserva().getIdReserva(),
             pago.getIdPasarela(),
-            pago.getIdEstadoPago(),
+            pago.getEstadoPago(),
             pago.getFechaPago(),
             pago.getMonto()
         );

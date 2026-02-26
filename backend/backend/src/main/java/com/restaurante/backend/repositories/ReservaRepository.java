@@ -32,7 +32,7 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
     // 3. No exista un registro de Pago exitoso asociado
     @Query("SELECT r FROM Reserva r WHERE r.fecha <= :fechaLimite " +
            "AND r.estadoReserva.nombre = 'PENDIENTE' " +
-           "AND NOT EXISTS (SELECT p FROM Pago p WHERE p.reserva = r AND p.idEstadoPago = 'PAGADO')")
+           "AND NOT EXISTS (SELECT p FROM Pago p WHERE p.reserva = r AND p.estadoPago = 'PAGADO')")
     List<Reserva> findReservasNoPagadasVencidas(@Param("fechaLimite") LocalDate fechaLimite);
 
     @Query("SELECT r FROM Reserva r WHERE r.fecha = :fecha " +
