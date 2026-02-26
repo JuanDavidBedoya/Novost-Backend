@@ -37,6 +37,7 @@ public class ApplicationConfig {
                 .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado con email: " + username));
     }
 
+    @SuppressWarnings("deprecation")
     @Bean
     public AuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();

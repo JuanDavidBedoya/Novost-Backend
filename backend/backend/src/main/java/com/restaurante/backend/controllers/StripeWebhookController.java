@@ -29,6 +29,7 @@ public class StripeWebhookController {
         this.reservaService = reservaService;
     }
 
+    @SuppressWarnings("deprecation")
     @PostMapping("/stripe")
     public ResponseEntity<String> handleStripeEvent(@RequestBody String payload, @RequestHeader("Stripe-Signature") String sigHeader) {
         Event event;
