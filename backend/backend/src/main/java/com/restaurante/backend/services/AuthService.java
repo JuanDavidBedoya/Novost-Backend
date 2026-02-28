@@ -40,13 +40,12 @@ public class AuthService {
     @Transactional
     public void iniciarLogin(LoginRequestDTO request) {
         Usuario usuario = usuarioRepository.findByEmail(request.email())
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+                .orElseThrow(() -> new RuntimeException("password:Datos incorrectos"));
 
         if (!passwordEncoder.matches(request.password(), usuario.getContrasenia())) {
-            throw new RuntimeException("Credenciales inválidas");
+            throw new RuntimeException("password:Datos incorrectos");
         }
 
-        // Generar código de 6 dígitos y expiración de 2 MINUTOS
         String codigo2FA = String.format("%06d", new Random().nextInt(999999));
         usuario.setCodigoVerificacion(codigo2FA);
         usuario.setExpiracionCodigo(LocalDateTime.now().plusMinutes(2));
@@ -59,23 +58,21 @@ public class AuthService {
     @Transactional
     public AuthResponseDTO verificarCodigo(VerifyCodeDTO request) {
         Usuario usuario = usuarioRepository.findByEmail(request.email())
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+                .orElseThrow(() -> new RuntimeException("codigo:Datos incorrectos"));
 
         if (usuario.getCodigoVerificacion() == null || !usuario.getCodigoVerificacion().equals(request.codigo())) {
-            throw new RuntimeException("Código inválido");
+            throw new RuntimeException("codigo:Código de verificación incorrecto o expirado");
         }
 
         if (usuario.getExpiracionCodigo().isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("El código ha expirado");
+            throw new RuntimeException("codigo:Código de verificación incorrecto o expirado");
         }
 
-        // Código válido, limpiamos los campos y actualizamos acceso
         usuario.setCodigoVerificacion(null);
         usuario.setExpiracionCodigo(null);
         usuario.setUltimoAcceso(LocalDateTime.now());
         usuarioRepository.save(usuario);
 
-        // Creamos el UserDetails para el token
         org.springframework.security.core.userdetails.User userDetails = 
             new org.springframework.security.core.userdetails.User(
                 usuario.getEmail(), 
@@ -84,7 +81,6 @@ public class AuthService {
             );
 
         String token = jwtService.generateToken(userDetails);
-        
         UsuarioResponseDTO dto = usuarioMapper.toUsuarioResponseDTO(usuario);
         
         return new AuthResponseDTO(token, dto);
@@ -92,16 +88,15 @@ public class AuthService {
 
     @Transactional
     public UsuarioResponseDTO registrar(RegistroUsuarioDTO request) {
-
         if (usuarioRepository.existsById(request.cedula())) {
-            throw new RuntimeException("Error: La cédula ya se encuentra registrada");
+            throw new RuntimeException("cedula:Cédula duplicada");
         }
         if (usuarioRepository.findByEmail(request.email()).isPresent()) {
-            throw new RuntimeException("Error: El correo electrónico ya está en uso");
+            throw new RuntimeException("email:Email duplicado");
         }
 
         Rol rolUsuario = rolRepository.findById(1L)
-                .orElseThrow(() -> new RuntimeException("Rol no encontrado"));
+                .orElseThrow(() -> new RuntimeException("general:Rol no encontrado"));
 
         Usuario nuevoUsuario = new Usuario();
         nuevoUsuario.setCedula(request.cedula());
@@ -122,14 +117,15 @@ public class AuthService {
     @Transactional
     public void solicitarRecuperacionPassword(String email) {
         Usuario usuario = usuarioRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+                .orElseThrow(() -> new RuntimeException("email:Usuario no encontrado"));
 
         String token = UUID.randomUUID().toString();
         usuario.setTokenRecuperacion(token);
         usuario.setExpiracionCodigo(LocalDateTime.now().plusMinutes(5)); 
         usuarioRepository.save(usuario);
 
-        String link = "http://localhost:8080/restaurar-password?token=" + token;
+        // ¡ATENCIÓN! Cambié el puerto a 3000 asumiendo que es donde corre el Frontend (o usa 5173 para Vite)
+        String link = "http://localhost:5173/restaurar-password?token=" + token;
         emailService.enviarCorreo(usuario.getEmail(), "Recuperación de contraseña", 
             "Ingresa a este link para restaurar tu contraseña: " + link + "\nEste link expira en 5 minutos.");
     }
@@ -137,13 +133,18 @@ public class AuthService {
     @Transactional
     public void restaurarPassword(String token, String nuevaContrasenia) {
         Usuario usuario = usuarioRepository.findByTokenRecuperacion(token)
-                .orElseThrow(() -> new RuntimeException("Token inválido"));
+                .orElseThrow(() -> new RuntimeException("general:Token inválido"));
 
         if (usuario.getExpiracionCodigo().isBefore(LocalDateTime.now())) {
-            throw new RuntimeException("El link de recuperación ha expirado");
+            throw new RuntimeException("general:El link de recuperación ha expirado");
         }
 
-        usuario.setContrasenia(passwordEncoder.encode(nuevaContrasenia)); // Encriptación aplicada
+        // NUEVA VALIDACIÓN: Que no sea la misma contraseña
+        if (passwordEncoder.matches(nuevaContrasenia, usuario.getContrasenia())) {
+            throw new RuntimeException("nuevaContrasenia:La nueva contraseña no puede ser igual a la anterior");
+        }
+
+        usuario.setContrasenia(passwordEncoder.encode(nuevaContrasenia));
         usuario.setTokenRecuperacion(null);
         usuario.setExpiracionCodigo(null);
         usuarioRepository.save(usuario);

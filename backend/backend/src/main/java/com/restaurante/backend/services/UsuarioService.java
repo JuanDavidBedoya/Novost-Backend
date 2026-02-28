@@ -23,26 +23,37 @@ public class UsuarioService {
         this.usuarioMapper = usuarioMapper;
     }
 
+    // NUEVO MÉTODO PARA OBTENER LOS DATOS
+    @Transactional(readOnly = true)
+    public UsuarioResponseDTO obtenerUsuario(String cedula) {
+        Usuario usuario = usuarioRepository.findById(cedula)
+                .orElseThrow(() -> new RuntimeException("general:Usuario no encontrado"));
+        return usuarioMapper.toUsuarioResponseDTO(usuario);
+    }
+
     @Transactional
     public UsuarioResponseDTO actualizarPerfil(String cedula, ActualizarPerfilDTO dto) {
         Usuario usuario = usuarioRepository.findById(cedula)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+                .orElseThrow(() -> new RuntimeException("general:Usuario no encontrado"));
         
         usuario.setNombre(dto.nombre());
         usuario.setTelefono(dto.telefono());
         usuarioRepository.save(usuario);
         
-        // Retornamos el usuario actualizado
         return usuarioMapper.toUsuarioResponseDTO(usuario);
     }
 
     @Transactional
     public void cambiarContrasenia(String cedula, CambiarContrasenaDTO dto) {
         Usuario usuario = usuarioRepository.findById(cedula)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+                .orElseThrow(() -> new RuntimeException("general:Usuario no encontrado"));
 
         if (!passwordEncoder.matches(dto.contrasenaAnterior(), usuario.getContrasenia())) {
-            throw new RuntimeException("La contraseña actual es incorrecta");
+            throw new RuntimeException("contrasenaAnterior:La contraseña actual es incorrecta");
+        }
+
+        if (passwordEncoder.matches(dto.contrasenaNueva(), usuario.getContrasenia())) {
+            throw new RuntimeException("contrasenaNueva:La nueva contraseña no puede ser igual a la anterior");
         }
 
         usuario.setContrasenia(passwordEncoder.encode(dto.contrasenaNueva()));

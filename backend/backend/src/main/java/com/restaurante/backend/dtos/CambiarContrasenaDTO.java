@@ -6,7 +6,8 @@ import jakarta.validation.constraints.Size;
 public record CambiarContrasenaDTO(
     @NotBlank(message = "La contraseña actual es obligatoria")
     String contrasenaAnterior,
+    
     @NotBlank(message = "La nueva contraseña es obligatoria")
-    @Size(min = 8)
+    @Size(min = 8, message = "La nueva contraseña debe tener al menos 8 caracteres")
     String contrasenaNueva
 ) {}
