@@ -43,4 +43,9 @@ public class AuthController {
         authService.restaurarPassword(request.token(), request.nuevaContrasenia());
         return ResponseEntity.ok("Contraseña restaurada exitosamente");
     }
+
+    @PostMapping("/registrar-trabajador")
+    public ResponseEntity<UsuarioResponseDTO> registerTrabajador(@Valid @RequestBody RegistroUsuarioDTO request) {
+        return ResponseEntity.ok(authService.registrarTrabajador(request));
+    }
 }

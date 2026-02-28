@@ -115,6 +115,37 @@ public class AuthService {
     }
 
     @Transactional
+    public UsuarioResponseDTO registrarTrabajador(RegistroUsuarioDTO request) {
+        if (usuarioRepository.existsById(request.cedula())) {
+            throw new RuntimeException("cedula:Cédula duplicada");
+        }
+        if (usuarioRepository.findByEmail(request.email()).isPresent()) {
+            throw new RuntimeException("email:Email duplicado");
+        }
+
+        Rol rolTrabajador = rolRepository.findById(2L)
+                .orElseThrow(() -> new RuntimeException("general:Rol de trabajador no encontrado"));
+
+        Usuario nuevoTrabajador = new Usuario();
+        nuevoTrabajador.setCedula(request.cedula());
+        nuevoTrabajador.setNombre(request.nombre());
+        nuevoTrabajador.setEmail(request.email());
+        nuevoTrabajador.setTelefono(request.telefono());
+        // Encriptamos la contraseña asignada por el admin
+        nuevoTrabajador.setContrasenia(passwordEncoder.encode(request.contrasena()));
+        nuevoTrabajador.setRol(rolTrabajador);
+
+        usuarioRepository.save(nuevoTrabajador);
+
+        // Enviamos un correo al trabajador para notificarle su cuenta
+        emailService.enviarCorreo(nuevoTrabajador.getEmail(), "Bienvenido al Equipo Novost", 
+            "¡Hola " + nuevoTrabajador.getNombre() + "! Has sido registrado como trabajador en nuestro sistema. " +
+            "Tu contraseña de acceso temporal es: " + request.contrasena() + ". Por favor, cámbiala al ingresar.");
+
+        return usuarioMapper.toUsuarioResponseDTO(nuevoTrabajador);
+    }
+
+    @Transactional
     public void solicitarRecuperacionPassword(String email) {
         Usuario usuario = usuarioRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("email:Usuario no encontrado"));
