@@ -46,7 +46,7 @@ public class PagoService {
         reservaRepo.save(reserva);
 
         // 4. Enviar la factura por correo (Aprovechamos la lógica que ya creamos)
-        emailService.enviarFactura(pagoGuardado);
+        emailService.enviarFacturaConPDF(pagoGuardado);
 
         // 5. Retornar el DTO de respuesta
         return pagoMapper.toResponseDTO(pagoGuardado);

@@ -3,9 +3,12 @@ package com.restaurante.backend.services;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import com.restaurante.backend.entities.Reserva;
+import com.restaurante.backend.repositories.ReservaRepository;
 import com.stripe.Stripe;
 import com.stripe.exception.StripeException;
 import com.stripe.model.PaymentIntent;
@@ -19,6 +22,10 @@ public class PasarelaService {
     @Value("${stripe.key.secret}")
     private String stripeSecretKey;
 
+    @Autowired
+    private ReservaRepository reservaRepo;
+    private static final Double PRECIO_POR_PERSONA = 5.0;
+
     @PostConstruct
     public void init() {
         Stripe.apiKey = stripeSecretKey;
@@ -28,22 +35,23 @@ public class PasarelaService {
      * Crea un PaymentIntent en Stripe y devuelve la información necesaria
      * para que el frontend complete el pago.
      */
-    public Map<String, String> crearIntentoPago(Double monto, String moneda, Long idReserva) {
+    public Map<String, String> crearIntentoPago(Long idReserva) {
         try {
-            // 1. Validación de seguridad básica
-            if (monto <= 0) {
-                throw new RuntimeException("El monto debe ser mayor a cero");
-            }
+            // 1. Buscamos la reserva en la base de datos
+            Reserva reserva = reservaRepo.findById(idReserva)
+                    .orElseThrow(() -> new RuntimeException("Reserva no encontrada"));
 
-            // 2. Stripe maneja montos en centavos (ej: 10.50 -> 1050)
-            long montoCentavos = (long) (monto * 100);
+            // 2. Calculamos el monto real AQUÍ (Seguridad total)
+            Double montoCalculado = reserva.getNumPersonas() * PRECIO_POR_PERSONA;
 
-            // 3. Configuración de parámetros para Stripe
+            // 3. Convertimos a centavos para Stripe
+            long montoCentavos = (long) (montoCalculado * 100);
+
+            // 4. Configuración de parámetros
             PaymentIntentCreateParams params = PaymentIntentCreateParams.builder()
                     .setAmount(montoCentavos)
-                    .setCurrency(moneda.toLowerCase())
+                    .setCurrency("usd") // Forzamos dólares
                     .putMetadata("idReserva", String.valueOf(idReserva))
-                    // Habilitar métodos de pago automáticos (tarjetas, wallets, etc)
                     .setAutomaticPaymentMethods(
                         PaymentIntentCreateParams.AutomaticPaymentMethods.builder()
                             .setEnabled(true)
@@ -51,18 +59,17 @@ public class PasarelaService {
                     )
                     .build();
 
-            // 4. Llamada a la API de Stripe
+            // 5. Llamada a Stripe
             PaymentIntent intent = PaymentIntent.create(params);
             
             Map<String, String> respuesta = new HashMap<>();
-            respuesta.put("idPasarela", intent.getId()); // El "pi_..." (CORRECTO PARA REEMBOLSOS)
+            respuesta.put("idPasarela", intent.getId());
             respuesta.put("clientSecret", intent.getClientSecret());
 
             return respuesta;
 
         } catch (StripeException e) {
-            System.err.println("Error al comunicarse con Stripe: " + e.getMessage());
-            throw new RuntimeException("No se pudo inicializar el pago en la pasarela externa");
+            throw new RuntimeException("No se pudo inicializar el pago: " + e.getMessage());
         }
     }
 }

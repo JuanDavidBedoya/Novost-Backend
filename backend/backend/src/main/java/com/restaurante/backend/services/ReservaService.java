@@ -42,6 +42,7 @@ public class ReservaService {
     private final EmailService emailService;
     private final PagoMapper pagoMapper;
 
+    private static final Double PRECIO_POR_PERSONA_USD = 5.0;
     private static final LocalTime HORA_APERTURA = LocalTime.of(12, 00); // 12:00 PM
     private static final LocalTime HORA_CIERRE = LocalTime.of(23, 59); // 11:59 PM
 
@@ -81,28 +82,11 @@ public class ReservaService {
                 .orElseThrow(() -> new RuntimeException("Estado PENDIENTE no configurado"));
         reserva.setEstadoReserva(estadoPendiente);
 
+        Double montoTotal = reserva.getNumPersonas() * PRECIO_POR_PERSONA_USD;
+
         Reserva guardada = reservaRepo.save(reserva);
 
-        String emailDestino = guardada.getUsuario().getEmail();
-        String nombreCliente = guardada.getUsuario().getNombre();
-        LocalDate fecha = guardada.getFecha();
-        LocalTime horaInicio = guardada.getHoraInicio(); // Obtenemos la hora
-        String numeroMesa = (guardada.getMesa() != null) 
-            ? String.valueOf(guardada.getMesa().getNumeroMesa()) 
-            : "Asignada al llegar";
-
-        String cuerpo = String.format(
-            "Hola %s, su reserva ha sido registrada.\n\n" +
-            "Detalles de su reserva:\n" +
-            "- Fecha: %s\n" +
-            "- Hora de inicio: %s\n\n" + 
-            "- Número de Mesa: %s\n" +
-            "Recuerde que tiene hasta 24 horas antes para realizar el pago y confirmar su asistencia.",
-            nombreCliente, fecha, horaInicio, fecha, numeroMesa
-        );
-
-        // Enviamos al correo real del usuario
-        emailService.enviarCorreo(emailDestino, "Confirmación de Reserva - Novost", cuerpo);
+        enviarCorreoConfirmacion(guardada, montoTotal);
 
         // 7. Entidad -> DTO de respuesta
         return reservaMapper.toResponseDTO(guardada);
@@ -118,31 +102,35 @@ public class ReservaService {
 
     @Transactional
     public PagoResponseDTO procesarPagoReserva(Long idReserva, String idPasarela, Double monto) {
-        // 1. Buscar reserva
         Reserva reserva = reservaRepo.findById(idReserva)
                 .orElseThrow(() -> new RuntimeException("Reserva no encontrada"));
 
-        // 2. Buscar estado
+        // VALIDACIÓN DE SEGURIDAD: 
+        // Verificamos que el monto pagado coincida con lo esperado (numPersonas * 5)
+        Double montoEsperado = reserva.getNumPersonas() * PRECIO_POR_PERSONA_USD;
+        
+        // Usamos una pequeña tolerancia para comparaciones de Double
+        if (Math.abs(monto - montoEsperado) > 0.01) {
+             System.out.println("⚠️ Alerta: El monto pagado ($" + monto + ") no coincide con el esperado ($" + montoEsperado + ")");
+        }
+
         EstadoReserva estadoPagada = estadoRepo.findByNombre("PAGADA")
                 .orElseThrow(() -> new RuntimeException("Estado PAGADA no configurado"));
 
-        // 3. Crear el pago con estado "succeeded" para futuros reembolsos
         Pago pago = new Pago();
         pago.setReserva(reserva);
         pago.setIdPasarela(idPasarela);
-        pago.setMonto(monto);
+        pago.setMonto(monto); // Guardamos el monto que viene de Stripe
         pago.setFechaPago(LocalDateTime.now());
         pago.setEstadoPago("succeeded"); 
 
-        // 4. Actualizar reserva
         reserva.setEstadoReserva(estadoPagada);
 
-        // 5. Guardar
         Pago pagoGuardado = pagoRepo.save(pago);
         reservaRepo.save(reserva);
 
-        // 6. Email
-        emailService.enviarFactura(pagoGuardado);
+        // Envío de Factura PDF
+        emailService.enviarFacturaConPDF(pagoGuardado);
 
         return pagoMapper.toResponseDTO(pagoGuardado);
     }
@@ -205,5 +193,23 @@ public class ReservaService {
             System.err.println("TIPO DE ERROR: " + e.getCode());
             return false;
         }
+    }
+
+    private void enviarCorreoConfirmacion(Reserva reserva, Double montoTotal) {
+        String cuerpo = String.format(
+            "Hola %s, su reserva ha sido registrada.\n\n" +
+            "Detalles de su reserva:\n" +
+            "- Fecha: %s\n" +
+            "- Hora: %s\n" +
+            "- Personas: %d\n" +
+            "- Valor a pagar: $%s USD\n\n" + 
+            "Recuerde realizar el pago para confirmar su asistencia.",
+            reserva.getUsuario().getNombre(), 
+            reserva.getFecha(), 
+            reserva.getHoraInicio(),
+            reserva.getNumPersonas(),
+            montoTotal
+        );
+        emailService.enviarCorreo(reserva.getUsuario().getEmail(), "Confirmación de Reserva - Novost", cuerpo);
     }
 }
