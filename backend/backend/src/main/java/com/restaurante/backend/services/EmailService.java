@@ -19,9 +19,6 @@ public class EmailService {
 
     private final JavaMailSender mailSender;
 
-    /**
-     * Método genérico para enviar correos de texto plano.
-     */
     public void enviarCorreo(String destinado, String asunto, String cuerpo) {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setTo(destinado);
@@ -30,10 +27,6 @@ public class EmailService {
         mailSender.send(message);
     }
 
-    /**
-     * Envía la factura detallada tras un pago exitoso.
-     * Se usa la entidad Pago porque ya contiene la relación con Reserva y Usuario.
-     */
     public void enviarFactura(Pago pago) {
         Reserva r = pago.getReserva();
         String cuerpo = String.format(
@@ -59,9 +52,6 @@ public class EmailService {
         enviarCorreo(r.getUsuario().getEmail(), "Confirmación de Pago - Novost", cuerpo);
     }
 
-    /**
-     * Envía un recordatorio automático antes de la reserva.
-     */
     public void enviarRecordatorio(String email, String nombre, LocalDate fecha, LocalTime hora) {
         String cuerpo = String.format(
             "Hola %s,\n\nTe recordamos que tienes una reserva hoy %s a las %s en Novost.\n" +
@@ -71,9 +61,6 @@ public class EmailService {
         enviarCorreo(email, "Recordatorio de tu Reserva - Novost", cuerpo);
     }
 
-    /**
-     * Notifica sobre la cancelación (Manual o Automática).
-     */
     public void enviarNotificacionCancelacion(String email, String nombre, String motivo) {
         String cuerpo = String.format(
             "Hola %s,\n\nTe informamos que tu reserva en Novost ha sido cancelada.\n" +

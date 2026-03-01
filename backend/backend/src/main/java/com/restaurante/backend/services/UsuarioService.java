@@ -23,7 +23,6 @@ public class UsuarioService {
         this.usuarioMapper = usuarioMapper;
     }
 
-    // NUEVO MÉTODO PARA OBTENER LOS DATOS
     @Transactional(readOnly = true)
     public UsuarioResponseDTO obtenerUsuario(String cedula) {
         Usuario usuario = usuarioRepository.findById(cedula)

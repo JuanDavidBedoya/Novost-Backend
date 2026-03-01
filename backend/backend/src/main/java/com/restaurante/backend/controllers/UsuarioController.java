@@ -18,7 +18,6 @@ public class UsuarioController {
         this.usuarioService = usuarioService;
     }
 
-    // NUEVO ENDPOINT
     @GetMapping("/{cedula}")
     public ResponseEntity<UsuarioResponseDTO> getProfile(@PathVariable String cedula) {
         return ResponseEntity.ok(usuarioService.obtenerUsuario(cedula));

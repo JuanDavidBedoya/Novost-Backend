@@ -131,13 +131,13 @@ public class AuthService {
         nuevoTrabajador.setNombre(request.nombre());
         nuevoTrabajador.setEmail(request.email());
         nuevoTrabajador.setTelefono(request.telefono());
-        // Encriptamos la contraseña asignada por el admin
+
         nuevoTrabajador.setContrasenia(passwordEncoder.encode(request.contrasena()));
         nuevoTrabajador.setRol(rolTrabajador);
 
         usuarioRepository.save(nuevoTrabajador);
 
-        // Enviamos un correo al trabajador para notificarle su cuenta
+
         emailService.enviarCorreo(nuevoTrabajador.getEmail(), "Bienvenido al Equipo Novost", 
             "¡Hola " + nuevoTrabajador.getNombre() + "! Has sido registrado como trabajador en nuestro sistema. " +
             "Tu contraseña de acceso temporal es: " + request.contrasena() + ". Por favor, cámbiala al ingresar.");
@@ -155,7 +155,6 @@ public class AuthService {
         usuario.setExpiracionCodigo(LocalDateTime.now().plusMinutes(5)); 
         usuarioRepository.save(usuario);
 
-        // ¡ATENCIÓN! Cambié el puerto a 3000 asumiendo que es donde corre el Frontend (o usa 5173 para Vite)
         String link = "http://localhost:5173/restaurar-password?token=" + token;
         emailService.enviarCorreo(usuario.getEmail(), "Recuperación de contraseña", 
             "Ingresa a este link para restaurar tu contraseña: " + link + "\nEste link expira en 5 minutos.");
@@ -170,7 +169,6 @@ public class AuthService {
             throw new RuntimeException("general:El link de recuperación ha expirado");
         }
 
-        // NUEVA VALIDACIÓN: Que no sea la misma contraseña
         if (passwordEncoder.matches(nuevaContrasenia, usuario.getContrasenia())) {
             throw new RuntimeException("nuevaContrasenia:La nueva contraseña no puede ser igual a la anterior");
         }
