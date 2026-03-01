@@ -55,29 +55,24 @@ public class ReservaTask {
      * Cancelación automática por impago.
      * Se ejecuta cada hora para cancelar reservas que están a menos de 24h de iniciar y siguen PENDIENTES.
      */
-    @Scheduled(cron = "0 0 * * * *")
+    @Scheduled(cron = "0 * * * * *")
     @Transactional
     public void cancelarReservasNoPagadas() {
-        // Buscamos el objeto estado "CANCELADA" de la base de datos
-        EstadoReserva estadoCancelado = estadoRepo.findByNombre("CANCELADA")
-                .orElseThrow(() -> new RuntimeException("Estado CANCELADA no configurado en BD"));
-
-        // Límite: Reservas que ocurren mañana (a 24h de distancia)
-        LocalDate fechaLimite = LocalDate.now().plusDays(1);
-        List<Reserva> vencidas = reservaRepo.findReservasNoPagadasVencidas(fechaLimite);
-
-        vencidas.forEach(r -> {
-            r.setEstadoReserva(estadoCancelado);
-            
-            // Usamos el método de notificación de cancelación del EmailService
-            emailService.enviarNotificacionCancelacion(
-                r.getUsuario().getEmail(),
-                r.getUsuario().getNombre(),
-                "Falta de pago dentro del plazo requerido (24 horas antes del evento)."
-            );
-        });
+        // PUNTO DE CORTE: Si una reserva empieza dentro de 24 horas, ya debería estar pagada.
+        LocalDateTime limiteDePagoYaVencido = LocalDateTime.now().plusHours(24);
         
-        // Guardamos los cambios en lote
-        reservaRepo.saveAll(vencidas);
+        LocalDate fechaRef = limiteDePagoYaVencido.toLocalDate();
+        LocalTime horaRef = limiteDePagoYaVencido.toLocalTime();
+
+        // Traemos lo que ya debería estar pagado y no lo está
+        List<Reserva> vencidas = reservaRepo.findReservasVencidas(fechaRef, horaRef);
+
+        if (!vencidas.isEmpty()) {
+            EstadoReserva estadoCancelado = estadoRepo.findByNombre("CANCELADA")
+                    .orElseThrow(() -> new RuntimeException("Estado no encontrado"));
+
+            vencidas.forEach(r -> r.setEstadoReserva(estadoCancelado));
+            reservaRepo.saveAll(vencidas);
+        }
     }
 }

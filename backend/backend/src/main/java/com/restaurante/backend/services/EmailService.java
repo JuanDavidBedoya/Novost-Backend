@@ -1,16 +1,23 @@
 package com.restaurante.backend.services;
 
+import java.io.ByteArrayOutputStream;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
+import com.lowagie.text.Document;
+import com.lowagie.text.Font;
+import com.lowagie.text.Paragraph;
+import com.lowagie.text.pdf.PdfWriter;
 import com.restaurante.backend.entities.Pago;
-import com.restaurante.backend.entities.Reserva;
 
+import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -27,29 +34,34 @@ public class EmailService {
         mailSender.send(message);
     }
 
-    public void enviarFactura(Pago pago) {
-        Reserva r = pago.getReserva();
-        String cuerpo = String.format(
-            "--- FACTURA DE PAGO - NOVOST ---\n\n" +
-            "Cliente: %s\n" +
-            "Empresa: Novost SAS\n" +
-            "Fecha de Reserva: %s\n" +
-            "Horario: %s a %s\n" +
-            "---------------------------------\n" +
-            "Monto Pagado: $%.2f\n" +
-            "ID Transacción Pasarela: %s\n" +
-            "Fecha de Pago: %s\n" +
-            "---------------------------------\n" +
-            "¡Gracias por elegir Novost! Te esperamos.",
-            r.getUsuario().getNombre(),
-            r.getFecha(), 
-            r.getHoraInicio(), 
-            r.getHoraFin(),
-            pago.getMonto(), 
-            pago.getIdPasarela(),
-            pago.getFechaPago().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
-        );
-        enviarCorreo(r.getUsuario().getEmail(), "Confirmación de Pago - Novost", cuerpo);
+    /**
+     * Envía la factura detallada tras un pago exitoso.
+     * Se usa la entidad Pago porque ya contiene la relación con Reserva y Usuario.
+     */
+    public void enviarFacturaConPDF(Pago pago) {
+        try {
+            // 1. Crear el mensaje MIME (permite adjuntos)
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true); // true = multipart
+
+            helper.setTo(pago.getReserva().getUsuario().getEmail());
+            helper.setSubject("Tu Factura de Reserva #" + pago.getReserva().getIdReserva());
+            helper.setText("Hola " + pago.getReserva().getUsuario().getNombre() + 
+                           ", adjuntamos el detalle de tu pago.");
+
+            // 2. Generar el PDF en un array de bytes
+            byte[] pdfBytes = generarPDF(pago);
+
+            // 3. Adjuntar el PDF al correo
+            helper.addAttachment("Factura_" + pago.getReserva().getIdReserva() + ".pdf", 
+                                 new ByteArrayResource(pdfBytes));
+
+            mailSender.send(message);
+            System.out.println("📧 PDF enviado con éxito.");
+
+        } catch (Exception e) {
+            System.err.println("❌ Fallo al enviar PDF: " + e.getMessage());
+        }
     }
 
     public void enviarRecordatorio(String email, String nombre, LocalDate fecha, LocalTime hora) {
@@ -68,5 +80,46 @@ public class EmailService {
             nombre, motivo
         );
         enviarCorreo(email, "Actualización de Reserva - Novost", cuerpo);
+    }
+
+    private byte[] generarPDF(Pago pago) throws Exception {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        Document document = new Document();
+        PdfWriter.getInstance(document, out);
+
+        document.open();
+
+        // 1. Encabezado de la Factura
+        Font boldFont = new Font(Font.HELVETICA, 18, Font.BOLD);
+        document.add(new Paragraph("FACTURA DE RESERVA - NOVOST", boldFont));
+        document.add(new Paragraph("ID Transacción: " + pago.getIdPasarela()));
+        document.add(new Paragraph("Fecha: " + pago.getFechaPago().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))));
+        document.add(new Paragraph("------------------------------------------------------------------"));
+
+        // 2. Información del Cliente
+        document.add(new Paragraph("Cliente: " + pago.getReserva().getUsuario().getNombre()));
+        document.add(new Paragraph("Cédula: " + pago.getReserva().getUsuario().getCedula()));
+        document.add(new Paragraph("Mesa: #" + pago.getReserva().getMesa().getNumeroMesa()));
+        document.add(new Paragraph("------------------------------------------------------------------"));
+
+        // 3. DESGLOSE DEL MONTO (Aquí aplicamos la lógica de los 5 USD)
+        int personas = pago.getReserva().getNumPersonas();
+        double precioPersona = 5.0; // Tu valor base
+        double total = pago.getMonto(); // El monto que guardamos en la DB
+
+        document.add(new Paragraph("CONCEPTO: Reserva de mesa"));
+        document.add(new Paragraph("Cantidad de personas: " + personas));
+        document.add(new Paragraph("Precio por persona: $ " + precioPersona + " USD"));
+        document.add(new Paragraph(" ")); // Espacio en blanco
+        
+        // 4. Total resaltado
+        Font totalFont = new Font(Font.HELVETICA, 14, Font.BOLD);
+        document.add(new Paragraph("TOTAL PAGADO: $ " + total + " USD", totalFont));
+        
+        document.add(new Paragraph("------------------------------------------------------------------"));
+        document.add(new Paragraph("¡Gracias por elegir Novost! Esperamos verle pronto."));
+
+        document.close();
+        return out.toByteArray();
     }
 }

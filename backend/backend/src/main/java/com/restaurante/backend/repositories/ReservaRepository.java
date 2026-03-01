@@ -15,10 +15,11 @@ import jakarta.persistence.LockModeType;
 
 public interface ReservaRepository extends JpaRepository<Reserva, Long> {
     // Busca si ya existe una reserva para esa mesa en ese rango de tiempo
-    @Lock(LockModeType.PESSIMISTIC_WRITE) // Bloquea la fila durante la transacción
+    @Lock(LockModeType.PESSIMISTIC_WRITE) 
     @Query("SELECT r FROM Reserva r WHERE r.mesa.idMesa = :idMesa " +
-           "AND r.fecha = :fecha " +
-           "AND (:inicio < r.horaFin AND :fin > r.horaInicio)")
+        "AND r.fecha = :fecha " +
+        "AND (:inicio < r.horaFin AND :fin > r.horaInicio) " +
+        "AND r.estadoReserva.nombre <> 'CANCELADA'") // <--- ESTA ES LA LÍNEA MÁGICA
     List<Reserva> findOverlappingReservations(
         @Param("idMesa") Long idMesa, 
         @Param("fecha") LocalDate fecha, 
@@ -26,14 +27,16 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
         @Param("fin") LocalTime fin
     );
 
-    // Busca reservas donde:
-    // 1. La fecha sea hoy o mañana (faltan menos de 24h)
-    // 2. El estado sea 'PENDIENTE'
-    // 3. No exista un registro de Pago exitoso asociado
-    @Query("SELECT r FROM Reserva r WHERE r.fecha <= :fechaLimite " +
-           "AND r.estadoReserva.nombre = 'PENDIENTE' " +
-           "AND NOT EXISTS (SELECT p FROM Pago p WHERE p.reserva = r AND p.estadoPago = 'PAGADO')")
-    List<Reserva> findReservasNoPagadasVencidas(@Param("fechaLimite") LocalDate fechaLimite);
+    @Query("SELECT r FROM Reserva r WHERE r.estadoReserva.nombre = 'PENDIENTE' " +
+       "AND (" +
+       "  r.fecha < :fechaReferencia " + 
+       "  OR (r.fecha = :fechaReferencia AND r.horaInicio <= :horaReferencia)" +
+       ") " +
+       "AND NOT EXISTS (SELECT p FROM Pago p WHERE p.reserva = r AND p.estadoPago = 'PAGADO')")
+    List<Reserva> findReservasVencidas(
+        @Param("fechaReferencia") LocalDate fechaReferencia, 
+        @Param("horaReferencia") LocalTime horaReferencia
+    );
 
     @Query("SELECT r FROM Reserva r WHERE r.fecha = :fecha " +
        "AND r.horaInicio >= :horaInicio " +

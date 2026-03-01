@@ -2,6 +2,7 @@ package com.restaurante.backend.controllers;
 
 import java.util.Map;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -25,12 +26,18 @@ public class PagoController {
     private final PasarelaService pasarelaService; // Servicio para interactuar con Stripe
 
     @PostMapping("/crear-intento")
-    public ResponseEntity<Map<String, String>> iniciarPago(@RequestParam Long idReserva, @RequestParam Double monto) {
-        // Ahora recibimos el mapa con los dos IDs
-        Map<String, String> datosStripe = pasarelaService.crearIntentoPago(monto, "usd", idReserva);
-        
-        // Aquí podrías incluso guardar ya el idPasarela en tu base de datos si quisieras
-        return ResponseEntity.ok(datosStripe);
+    public ResponseEntity<Map<String, String>> iniciarPago(@RequestParam(name = "idReserva") Long idReserva) {
+        // 1. Log para confirmar que el dato llegó al servidor
+        System.out.println("DEBUG: Recibida solicitud para reserva ID: " + idReserva);
+
+        try {
+            // 2. Llamada al servicio que ya modificamos para calcular (personas * 5)
+            Map<String, String> datosStripe = pasarelaService.crearIntentoPago(idReserva);
+            return ResponseEntity.ok(datosStripe);
+        } catch (Exception e) {
+            System.err.println("DEBUG: Error creando intento: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     @PostMapping("/confirmar")
