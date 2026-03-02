@@ -1,8 +1,5 @@
 package com.restaurante.backend.exceptions;
 
-/**
- * Excepción base para errores de negocio en la aplicación
- */
 public class BusinessException extends RuntimeException {
     
     private final String campo;

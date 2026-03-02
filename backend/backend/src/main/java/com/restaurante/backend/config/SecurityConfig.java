@@ -32,11 +32,9 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            // En lugar de withDefaults(), usamos una expresión lambda simple
             .cors(cors -> cors.configurationSource(corsConfigurationSource())) 
             .csrf(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(auth -> auth
-                // RUTAS PÚBLICAS (sin autenticación)
                 .requestMatchers(
                     "/auth/login",
                     "/auth/verificar-login",
@@ -47,7 +45,6 @@ public class SecurityConfig {
                     "/pagos/confirmar",
                     "/webhooks/stripe"
                 ).permitAll()
-                // RUTAS PRIVADAS (requieren autenticación JWT)
                 .anyRequest().authenticated()   
             )
             .sessionManagement(session -> session
@@ -62,13 +59,9 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Permitimos el origen de tu Frontend (Vite)
         configuration.setAllowedOrigins(Arrays.asList("http://localhost:5173")); 
-        // Métodos permitidos
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        // Cabeceras permitidas (Authorization es vital para el JWT)
         configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "Cache-Control"));
-        // Permitir envío de cookies o auth headers
         configuration.setAllowCredentials(true);
         
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

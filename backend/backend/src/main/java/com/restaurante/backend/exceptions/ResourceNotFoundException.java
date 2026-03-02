@@ -1,8 +1,5 @@
 package com.restaurante.backend.exceptions;
 
-/**
- * Excepción para recursos no encontrados (usuario, reserva, etc.)
- */
 public class ResourceNotFoundException extends BusinessException {
 
     public ResourceNotFoundException(String recurso, String identificador) {

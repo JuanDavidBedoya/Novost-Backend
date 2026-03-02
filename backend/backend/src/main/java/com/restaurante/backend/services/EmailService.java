@@ -34,33 +34,26 @@ public class EmailService {
         mailSender.send(message);
     }
 
-    /**
-     * Envía la factura detallada tras un pago exitoso.
-     * Se usa la entidad Pago porque ya contiene la relación con Reserva y Usuario.
-     */
     public void enviarFacturaConPDF(Pago pago) {
         try {
-            // 1. Crear el mensaje MIME (permite adjuntos)
             MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true); // true = multipart
+            MimeMessageHelper helper = new MimeMessageHelper(message, true);
 
             helper.setTo(pago.getReserva().getUsuario().getEmail());
             helper.setSubject("Tu Factura de Reserva #" + pago.getReserva().getIdReserva());
             helper.setText("Hola " + pago.getReserva().getUsuario().getNombre() + 
                            ", adjuntamos el detalle de tu pago.");
 
-            // 2. Generar el PDF en un array de bytes
             byte[] pdfBytes = generarPDF(pago);
 
-            // 3. Adjuntar el PDF al correo
             helper.addAttachment("Factura_" + pago.getReserva().getIdReserva() + ".pdf", 
                                  new ByteArrayResource(pdfBytes));
 
             mailSender.send(message);
-            System.out.println("📧 PDF enviado con éxito.");
+            System.out.println("PDF enviado con éxito.");
 
         } catch (Exception e) {
-            System.err.println("❌ Fallo al enviar PDF: " + e.getMessage());
+            System.err.println("Fallo al enviar PDF: " + e.getMessage());
         }
     }
 
@@ -89,30 +82,26 @@ public class EmailService {
 
         document.open();
 
-        // 1. Encabezado de la Factura
         Font boldFont = new Font(Font.HELVETICA, 18, Font.BOLD);
         document.add(new Paragraph("FACTURA DE RESERVA - NOVOST", boldFont));
         document.add(new Paragraph("ID Transacción: " + pago.getIdPasarela()));
         document.add(new Paragraph("Fecha: " + pago.getFechaPago().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))));
         document.add(new Paragraph("------------------------------------------------------------------"));
 
-        // 2. Información del Cliente
         document.add(new Paragraph("Cliente: " + pago.getReserva().getUsuario().getNombre()));
         document.add(new Paragraph("Cédula: " + pago.getReserva().getUsuario().getCedula()));
         document.add(new Paragraph("Mesa: #" + pago.getReserva().getMesa().getNumeroMesa()));
         document.add(new Paragraph("------------------------------------------------------------------"));
 
-        // 3. DESGLOSE DEL MONTO (Aquí aplicamos la lógica de los 5 USD)
         int personas = pago.getReserva().getNumPersonas();
-        double precioPersona = 5.0; // Tu valor base
-        double total = pago.getMonto(); // El monto que guardamos en la DB
+        double precioPersona = 5.0;
+        double total = pago.getMonto();
 
         document.add(new Paragraph("CONCEPTO: Reserva de mesa"));
         document.add(new Paragraph("Cantidad de personas: " + personas));
         document.add(new Paragraph("Precio por persona: $ " + precioPersona + " USD"));
-        document.add(new Paragraph(" ")); // Espacio en blanco
+        document.add(new Paragraph(" "));
         
-        // 4. Total resaltado
         Font totalFont = new Font(Font.HELVETICA, 14, Font.BOLD);
         document.add(new Paragraph("TOTAL PAGADO: $ " + total + " USD", totalFont));
         

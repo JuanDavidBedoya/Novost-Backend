@@ -33,26 +33,18 @@ public class PasarelaService {
         Stripe.apiKey = stripeSecretKey;
     }
 
-    /**
-     * Crea un PaymentIntent en Stripe y devuelve la información necesaria
-     * para que el frontend complete el pago.
-     */
     public Map<String, String> crearIntentoPago(Long idReserva) {
         try {
-            // 1. Buscamos la reserva en la base de datos
             Reserva reserva = reservaRepo.findById(idReserva)
                     .orElseThrow(() -> new ResourceNotFoundException("Reserva", idReserva.toString()));
 
-            // 2. Calculamos el monto real AQUÍ (Seguridad total)
             Double montoCalculado = reserva.getNumPersonas() * PRECIO_POR_PERSONA;
 
-            // 3. Convertimos a centavos para Stripe
             long montoCentavos = (long) (montoCalculado * 100);
 
-            // 4. Configuración de parámetros
             PaymentIntentCreateParams params = PaymentIntentCreateParams.builder()
                     .setAmount(montoCentavos)
-                    .setCurrency("usd") // Forzamos dólares
+                    .setCurrency("usd")
                     .putMetadata("idReserva", String.valueOf(idReserva))
                     .setAutomaticPaymentMethods(
                         PaymentIntentCreateParams.AutomaticPaymentMethods.builder()
@@ -61,7 +53,6 @@ public class PasarelaService {
                     )
                     .build();
 
-            // 5. Llamada a Stripe
             PaymentIntent intent;
             try {
                 intent = PaymentIntent.create(params);

@@ -40,18 +40,16 @@ public class ReservaService {
     private final MesaRepository mesaRepo;
     private final EstadoReservaRepository estadoRepo;
 
-    // Inyectamos los mappers individuales
     private final ReservaMapper reservaMapper;
     private final EmailService emailService;
     private final PagoMapper pagoMapper;
 
     private static final Double PRECIO_POR_PERSONA_USD = 5.0;
-    private static final LocalTime HORA_APERTURA = LocalTime.of(12, 00); // 12:00 PM
-    private static final LocalTime HORA_CIERRE = LocalTime.of(23, 59); // 11:59 PM
+    private static final LocalTime HORA_APERTURA = LocalTime.of(12, 00);
+    private static final LocalTime HORA_CIERRE = LocalTime.of(23, 59);
 
     @Transactional
     public ReservaResponseDTO crearReserva(ReservaRequestDTO dto) {
-        // 1. DTO -> Entidad (El mapper ya busca al Usuario por cédula)
         Reserva reserva = reservaMapper.toEntity(dto);
 
         LocalTime horaDeseada = dto.getHoraInicio();
@@ -64,15 +62,10 @@ public class ReservaService {
             throw new ValidationException("hora", "Por favor seleccione una hora de reserva entre las 12:00 y las 00:00.");
         }
 
-        // 2. Lógica de negocio: Calcular hora fin (Inicio + 2 horas)
-        // La reserva dura exactamente 2 horas: si inicia a las 14:00, termina a las 16:00
-        // Otra reserva puede iniciar a las 16:00 (cuando termina esta)
         reserva.setHoraFin(reserva.getHoraInicio().plusHours(2));
 
-        // 3. Buscar mesas que tengan capacidad suficiente
         List<Mesa> mesasCandidatas = mesaRepo.findByCapacidadGreaterThanEqualOrderByCapacidadAsc(reserva.getNumPersonas());
 
-        // 4. Encontrar la primera mesa disponible (Uso de Java Stream)
         Mesa mesaAsignada = mesasCandidatas.stream()
             .filter(m -> reservaRepo.findOverlappingReservations(
                     m.getIdMesa(), reserva.getFecha(), 
@@ -82,7 +75,6 @@ public class ReservaService {
 
         reserva.setMesa(mesaAsignada);
         
-        // 5. Asignar estado inicial (Busca en la BD el objeto EstadoReserva)
         EstadoReserva estadoPendiente = estadoRepo.findByNombre("PENDIENTE")
                 .orElseThrow(() -> new ResourceNotFoundException("Estado PENDIENTE no configurado en la base de datos"));
         reserva.setEstadoReserva(estadoPendiente);
@@ -93,7 +85,6 @@ public class ReservaService {
 
         enviarCorreoConfirmacion(guardada, montoTotal);
 
-        // 7. Entidad -> DTO de respuesta
         return reservaMapper.toResponseDTO(guardada);
     }
     
@@ -101,7 +92,7 @@ public class ReservaService {
         List<Reserva> entidades = reservaRepo.buscarConFiltros(fecha, hora, personas);
         
         return entidades.stream()
-                .map(reservaMapper::toDto) // Usando tu mapper ya configurado
+                .map(reservaMapper::toDto)
                 .collect(Collectors.toList());
     }
 
@@ -128,13 +119,10 @@ public class ReservaService {
         Reserva reserva = reservaRepo.findById(idReserva)
                 .orElseThrow(() -> new ResourceNotFoundException("Reserva", idReserva.toString()));
 
-        // VALIDACIÓN DE SEGURIDAD: 
-        // Verificamos que el monto pagado coincida con lo esperado (numPersonas * 5)
         Double montoEsperado = reserva.getNumPersonas() * PRECIO_POR_PERSONA_USD;
         
-        // Usamos una pequeña tolerancia para comparaciones de Double
         if (Math.abs(monto - montoEsperado) > 0.01) {
-             System.out.println("⚠️ Alerta: El monto pagado ($" + monto + ") no coincide con el esperado ($" + montoEsperado + ")");
+             System.out.println(" Alerta: El monto pagado ($" + monto + ") no coincide con el esperado ($" + montoEsperado + ")");
         }
 
         EstadoReserva estadoPagada = estadoRepo.findByNombre("PAGADA")
@@ -143,7 +131,7 @@ public class ReservaService {
         Pago pago = new Pago();
         pago.setReserva(reserva);
         pago.setIdPasarela(idPasarela);
-        pago.setMonto(monto); // Guardamos el monto que viene de Stripe
+        pago.setMonto(monto);
         pago.setFechaPago(LocalDateTime.now());
         pago.setEstadoPago("succeeded"); 
 
@@ -152,7 +140,6 @@ public class ReservaService {
         Pago pagoGuardado = pagoRepo.save(pago);
         reservaRepo.save(reserva);
 
-        // Envío de Factura PDF
         emailService.enviarFacturaConPDF(pagoGuardado);
 
         return pagoMapper.toResponseDTO(pagoGuardado);
@@ -160,18 +147,16 @@ public class ReservaService {
 
     @Transactional
     public ReservaResponseDTO cancelarReserva(Long idReserva) {
-        // 1. Buscar la reserva
+
         Reserva reserva = reservaRepo.findById(idReserva)
                 .orElseThrow(() -> new ResourceNotFoundException("Reserva", idReserva.toString()));
 
-        // 2. Validación de fecha
         if (reserva.getFecha().isBefore(LocalDate.now())) {
             throw new ValidationException("general", "No se pueden cancelar reservas de fechas pasadas.");
         }
 
-        // 3. Procesar Reembolso si existe un pago asociado
         pagoRepo.findByReserva(reserva).ifPresent(pago -> {
-            // Suponiendo que tienes esta lógica o el servicio de pasarela inyectado
+
             boolean reembolsoExitoso = ejecutarReembolsoStripe(pago.getIdPasarela(), pago.getMonto());
             
             if (!reembolsoExitoso) {
@@ -182,14 +167,12 @@ public class ReservaService {
             pagoRepo.save(pago);
         });
 
-        // 4. Cambiar estado a CANCELADA
         EstadoReserva estadoCancelado = estadoRepo.findByNombre("CANCELADA")
                 .orElseThrow(() -> new ResourceNotFoundException("Estado CANCELADA no configurado en la base de datos"));
         
         reserva.setEstadoReserva(estadoCancelado);
         Reserva guardada = reservaRepo.save(reserva);
 
-        // 5. Notificar por correo al usuario real
         String cuerpoEmail = String.format(
             "Hola %s, le confirmamos que su reserva para el día %s a las %s ha sido cancelada.\n" +
             "Si realizó un pago previo, el reembolso ha sido solicitado a su entidad bancaria.",
@@ -200,7 +183,6 @@ public class ReservaService {
         
         emailService.enviarCorreo(reserva.getUsuario().getEmail(), "Cancelación de Reserva - Novost", cuerpoEmail);
 
-        // 6. Retornar el DTO usando tu mapper
         return reservaMapper.toDto(guardada);
     }
 

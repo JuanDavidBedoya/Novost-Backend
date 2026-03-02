@@ -6,9 +6,6 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * DTO de response para devolver datos de un pago
- */
 @Data
 @AllArgsConstructor
 @NoArgsConstructor

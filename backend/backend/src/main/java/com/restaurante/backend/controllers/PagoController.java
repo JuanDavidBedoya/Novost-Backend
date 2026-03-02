@@ -22,16 +22,14 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class PagoController {
 
-    private final PagoService pagoService; // Inyectamos el servicio, no los repositorios
-    private final PasarelaService pasarelaService; // Servicio para interactuar con Stripe
+    private final PagoService pagoService;
+    private final PasarelaService pasarelaService;
 
     @PostMapping("/crear-intento") //PUBLICA
     public ResponseEntity<Map<String, String>> iniciarPago(@RequestParam(name = "idReserva") Long idReserva) {
-        // 1. Log para confirmar que el dato llegó al servidor
         System.out.println("DEBUG: Recibida solicitud para reserva ID: " + idReserva);
 
         try {
-            // 2. Llamada al servicio que ya modificamos para calcular (personas * 5)
             Map<String, String> datosStripe = pasarelaService.crearIntentoPago(idReserva);
             return ResponseEntity.ok(datosStripe);
         } catch (Exception e) {
@@ -40,9 +38,8 @@ public class PagoController {
         }
     }
 
-    @PostMapping("/confirmar") //PUBLICA
+    @PostMapping("/confirmar") 
     public ResponseEntity<PagoResponseDTO> confirmarPago(@RequestBody PagoRequestDTO pagoRequest) {
-        // Delegamos toda la lógica al servicio
         PagoResponseDTO respuesta = pagoService.procesarConfirmacionPago(pagoRequest);
         return ResponseEntity.ok(respuesta);
     }

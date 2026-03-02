@@ -1,8 +1,5 @@
 package com.restaurante.backend.exceptions;
 
-/**
- * Excepción para recursos duplicados (cédula, email, etc.)
- */
 public class DuplicateResourceException extends BusinessException {
 
     public DuplicateResourceException(String campo, String valor) {

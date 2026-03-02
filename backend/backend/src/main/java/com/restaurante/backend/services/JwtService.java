@@ -29,12 +29,11 @@ public class JwtService {
         return claimsResolver.apply(claims);
     }
 
-    // Genera un token con validez de EXACTAMENTE 10 MINUTOS
     public String generateToken(UserDetails userDetails) {
         return Jwts.builder()
                 .subject(userDetails.getUsername())
                 .issuedAt(new Date(System.currentTimeMillis()))
-                .expiration(new Date(System.currentTimeMillis() + 1000 * 60 * 10)) // 10 Minutos
+                .expiration(new Date(System.currentTimeMillis() + 1000 * 60 * 10))
                 .signWith(getSignInKey())
                 .compact();
     }

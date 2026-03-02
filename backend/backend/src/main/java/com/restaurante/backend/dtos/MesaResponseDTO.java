@@ -4,9 +4,6 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * DTO de response para devolver datos de una mesa
- */
 @Data
 @AllArgsConstructor
 @NoArgsConstructor

@@ -37,17 +37,16 @@ public class StripeWebhookController {
         try {
             event = Webhook.constructEvent(payload, sigHeader, endpointSecret);
         } catch (SignatureVerificationException e) {
-            System.err.println("❌ Error al verificar firma de Stripe: " + e.getMessage());
+            System.err.println("Error al verificar firma de Stripe: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Firma inválida");
         } catch (Exception e) {
-            System.err.println("❌ Error al construir evento de Stripe: " + e.getMessage());
+            System.err.println("Error al construir evento de Stripe: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Error procesando evento");
         }
 
         if ("payment_intent.succeeded".equals(event.getType())) {
-            System.out.println("--- 🟢 EVENTO RECIBIDO DE STRIPE: PAYMENT INTENT SUCCEEDED ---");
+            System.out.println("--- EVENTO RECIBIDO DE STRIPE: PAYMENT INTENT SUCCEEDED ---");
 
-            // En lugar de deserializar al objeto nativo, lo leemos como un evento genérico
             Data eventData = event.getData();
             PaymentIntent paymentIntent = (PaymentIntent) eventData.getObject();
 
@@ -56,23 +55,22 @@ public class StripeWebhookController {
                 Double monto = paymentIntent.getAmount() / 100.0;
                 String idReservaStr = paymentIntent.getMetadata().get("idReserva");
 
-                System.out.println("✅ Datos Crudos - Pasarela: " + idPasarela + ", Reserva: " + idReservaStr);
+                System.out.println("Datos Crudos - Pasarela: " + idPasarela + ", Reserva: " + idReservaStr);
 
                 if (idReservaStr != null) {
                     try {
                         reservaService.procesarPagoReserva(Long.parseLong(idReservaStr), idPasarela, monto);
-                        System.out.println("🚀 ¡ÉXITO TOTAL! Reserva actualizada.");
+                        System.out.println("¡ÉXITO! Reserva actualizada.");
                     } catch (Exception e) {
-                        System.err.println("❌ ERROR EN SERVICE: " + e.getMessage());
+                        System.err.println(" ERROR EN SERVICE: " + e.getMessage());
                         e.printStackTrace();
                     }
                 }
             } else {
-                System.out.println("❌ Error crítico: No se pudo obtener el PaymentIntent del JSON.");
+                System.out.println("Error crítico: No se pudo obtener el PaymentIntent del JSON.");
             }
         }
 
-        // Retornamos 200 OK para todos los eventos (incluidos los que no procesamos como payment_intent.created)
         return ResponseEntity.ok("Evento procesado correctamente");
     }
 }

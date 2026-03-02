@@ -14,7 +14,6 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    // Maneja los errores de @NotBlank, @Email, @Pattern, etc.
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidationExceptions(MethodArgumentNotValidException ex) {
         Map<String, String> errors = new HashMap<>();
@@ -28,7 +27,6 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
     }
 
-    // Maneja excepciones de recursos no encontrados
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<Map<String, Object>> handleResourceNotFoundException(ResourceNotFoundException ex) {
         Map<String, String> errors = new HashMap<>();
@@ -38,7 +36,6 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
     }
 
-    // Maneja excepciones de recursos duplicados
     @ExceptionHandler(DuplicateResourceException.class)
     public ResponseEntity<Map<String, Object>> handleDuplicateResourceException(DuplicateResourceException ex) {
         Map<String, String> errors = new HashMap<>();
@@ -48,7 +45,6 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.CONFLICT);
     }
 
-    // Maneja excepciones de credenciales inválidas
     @ExceptionHandler(InvalidCredentialsException.class)
     public ResponseEntity<Map<String, Object>> handleInvalidCredentialsException(InvalidCredentialsException ex) {
         Map<String, String> errors = new HashMap<>();
@@ -58,7 +54,6 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
     }
 
-    // Maneja excepciones de token expirado
     @ExceptionHandler(TokenExpiredException.class)
     public ResponseEntity<Map<String, Object>> handleTokenExpiredException(TokenExpiredException ex) {
         Map<String, String> errors = new HashMap<>();
@@ -68,7 +63,6 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
     }
 
-    // Maneja excepciones de validación de negocio
     @ExceptionHandler(ValidationException.class)
     public ResponseEntity<Map<String, Object>> handleValidationException(ValidationException ex) {
         Map<String, String> errors = new HashMap<>();
@@ -78,7 +72,6 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
     }
 
-    // Maneja excepciones de pago
     @ExceptionHandler(PaymentException.class)
     public ResponseEntity<Map<String, Object>> handlePaymentException(PaymentException ex) {
         Map<String, String> errors = new HashMap<>();
@@ -88,7 +81,6 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.PAYMENT_REQUIRED);
     }
 
-    // Maneja excepciones de negocio genéricas
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<Map<String, Object>> handleBusinessException(BusinessException ex) {
         Map<String, String> errors = new HashMap<>();
@@ -98,13 +90,11 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
     }
 
-    // Maneja los errores de RuntimeException genéricos
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Map<String, Object>> handleRuntimeExceptions(RuntimeException ex) {
         Map<String, String> errors = new HashMap<>();
         String message = ex.getMessage();
         
-        // Si el mensaje tiene el formato "campo:mensaje", lo separamos
         if(message != null && message.contains(":")) {
             String[] parts = message.split(":", 2);
             errors.put(parts[0], parts[1]);
@@ -116,7 +106,6 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
     }
 
-    // Maneja excepciones no esperadas
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGenericException(Exception ex) {
         Map<String, String> errors = new HashMap<>();
@@ -126,7 +115,6 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
-    // Método auxiliar para crear la estructura de respuesta de error
     private Map<String, Object> createErrorResponse(String codigo, String mensaje, Map<String, String> errores, HttpStatus estado) {
         Map<String, Object> response = new HashMap<>();
         response.put("timestamp", LocalDateTime.now().toString());

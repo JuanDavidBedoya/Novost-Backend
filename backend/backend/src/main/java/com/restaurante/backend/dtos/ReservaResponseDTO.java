@@ -7,9 +7,6 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * DTO de response para devuelve datos de una reserva
- */
 @Data
 @AllArgsConstructor
 @NoArgsConstructor

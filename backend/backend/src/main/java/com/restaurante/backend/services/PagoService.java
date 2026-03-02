@@ -30,26 +30,22 @@ public class PagoService {
 
     @Transactional
     public PagoResponseDTO procesarConfirmacionPago(PagoRequestDTO dto) {
-        // 1. Buscar la reserva
+
         Reserva reserva = reservaRepo.findById(dto.getIdReserva())
                 .orElseThrow(() -> new ResourceNotFoundException("Reserva", dto.getIdReserva().toString()));
 
-        // 2. Crear y guardar el Pago usando el mapper
         Pago pago = pagoMapper.toEntity(dto);
         pago.setEstadoPago("succeeded");
         pago.setFechaPago(LocalDateTime.now());
         Pago pagoGuardado = pagoRepo.save(pago);
 
-        // 3. Actualizar el estado de la reserva
         EstadoReserva estadoPagada = estadoRepo.findByNombre("PAGADA")
                 .orElseThrow(() -> new ResourceNotFoundException("Estado PAGADA no configurado en la base de datos"));
         reserva.setEstadoReserva(estadoPagada);
         reservaRepo.save(reserva);
 
-        // 4. Enviar la factura por correo (Aprovechamos la lógica que ya creamos)
         emailService.enviarFacturaConPDF(pagoGuardado);
 
-        // 5. Retornar el DTO de respuesta
         return pagoMapper.toResponseDTO(pagoGuardado);
     }
 }

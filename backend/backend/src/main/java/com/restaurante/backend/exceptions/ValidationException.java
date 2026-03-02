@@ -1,8 +1,5 @@
 package com.restaurante.backend.exceptions;
 
-/**
- * Excepción para errores de validación de negocio
- */
 public class ValidationException extends BusinessException {
 
     public ValidationException(String campo, String mensaje) {

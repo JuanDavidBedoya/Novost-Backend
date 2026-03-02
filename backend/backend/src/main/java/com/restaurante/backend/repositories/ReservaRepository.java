@@ -14,7 +14,6 @@ import com.restaurante.backend.entities.Reserva;
 import jakarta.persistence.LockModeType;
 
 public interface ReservaRepository extends JpaRepository<Reserva, Long> {
-    // Busca si ya existe una reserva para esa mesa en ese rango de tiempo
     @Lock(LockModeType.PESSIMISTIC_WRITE) 
     @Query("SELECT r FROM Reserva r WHERE r.mesa.idMesa = :idMesa " +
         "AND r.fecha = :fecha " +
@@ -48,7 +47,6 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
         @Param("horaFin") LocalTime horaFin
     );
 
-    // Buscar por filtro de fecha, hora y número de personas (todos opcionales)
     @Query("SELECT r FROM Reserva r WHERE " +
            "(:fecha IS NULL OR r.fecha = :fecha) AND " +
            "(:hora IS NULL OR r.horaInicio = :hora) AND " +
@@ -59,11 +57,9 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
         @Param("personas") Integer personas
     );
 
-    // Buscar reservas por cédula de usuario
     @Query("SELECT r FROM Reserva r WHERE r.usuario.cedula = :cedula")
     List<Reserva> findByUsuarioCedula(@Param("cedula") String cedula);
 
-    // Buscar reservas por cédula de usuario con filtros
     @Query("SELECT r FROM Reserva r WHERE r.usuario.cedula = :cedula AND " +
            "(:fecha IS NULL OR r.fecha = :fecha) AND " +
            "(:hora IS NULL OR r.horaInicio = :hora) AND " +

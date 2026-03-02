@@ -1,8 +1,5 @@
 package com.restaurante.backend.exceptions;
 
-/**
- * Excepción para errores de pago
- */
 public class PaymentException extends BusinessException {
 
     public PaymentException(String mensaje) {
