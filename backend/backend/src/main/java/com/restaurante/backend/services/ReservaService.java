@@ -65,6 +65,8 @@ public class ReservaService {
         }
 
         // 2. Lógica de negocio: Calcular hora fin (Inicio + 2 horas)
+        // La reserva dura exactamente 2 horas: si inicia a las 14:00, termina a las 16:00
+        // Otra reserva puede iniciar a las 16:00 (cuando termina esta)
         reserva.setHoraFin(reserva.getHoraInicio().plusHours(2));
 
         // 3. Buscar mesas que tengan capacidad suficiente
@@ -100,6 +102,24 @@ public class ReservaService {
         
         return entidades.stream()
                 .map(reservaMapper::toDto) // Usando tu mapper ya configurado
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public List<ReservaResponseDTO> buscarReservasPorUsuario(String cedula) {
+        List<Reserva> entidades = reservaRepo.findByUsuarioCedula(cedula);
+        
+        return entidades.stream()
+                .map(reservaMapper::toDto)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public List<ReservaResponseDTO> buscarReservasPorUsuarioConFiltros(String cedula, LocalDate fecha, LocalTime hora, Integer personas) {
+        List<Reserva> entidades = reservaRepo.buscarPorUsuarioConFiltros(cedula, fecha, hora, personas);
+        
+        return entidades.stream()
+                .map(reservaMapper::toDto)
                 .collect(Collectors.toList());
     }
 

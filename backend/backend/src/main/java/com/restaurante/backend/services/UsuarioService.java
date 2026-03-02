@@ -58,4 +58,11 @@ public class UsuarioService {
         usuario.setContrasenia(passwordEncoder.encode(dto.contrasenaNueva()));
         usuarioRepository.save(usuario);
     }
+
+    @Transactional(readOnly = true)
+    public String obtenerCedulaPorEmail(String email) {
+        Usuario usuario = usuarioRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("general:Usuario no encontrado"));
+        return usuario.getCedula();
+    }
 }

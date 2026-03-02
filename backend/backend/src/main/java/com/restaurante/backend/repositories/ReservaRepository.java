@@ -18,8 +18,8 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE) 
     @Query("SELECT r FROM Reserva r WHERE r.mesa.idMesa = :idMesa " +
         "AND r.fecha = :fecha " +
-        "AND (:inicio < r.horaFin AND :fin > r.horaInicio) " +
-        "AND r.estadoReserva.nombre <> 'CANCELADA'") // <--- ESTA ES LA LÍNEA MÁGICA
+        "AND (r.estadoReserva.nombre <> 'CANCELADA') " +
+        "AND NOT (r.horaFin <= :inicio OR r.horaInicio >= :fin)")
     List<Reserva> findOverlappingReservations(
         @Param("idMesa") Long idMesa, 
         @Param("fecha") LocalDate fecha, 
@@ -54,6 +54,22 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
            "(:hora IS NULL OR r.horaInicio = :hora) AND " +
            "(:personas IS NULL OR r.numPersonas = :personas)")
     List<Reserva> buscarConFiltros(
+        @Param("fecha") LocalDate fecha, 
+        @Param("hora") LocalTime hora, 
+        @Param("personas") Integer personas
+    );
+
+    // Buscar reservas por cédula de usuario
+    @Query("SELECT r FROM Reserva r WHERE r.usuario.cedula = :cedula")
+    List<Reserva> findByUsuarioCedula(@Param("cedula") String cedula);
+
+    // Buscar reservas por cédula de usuario con filtros
+    @Query("SELECT r FROM Reserva r WHERE r.usuario.cedula = :cedula AND " +
+           "(:fecha IS NULL OR r.fecha = :fecha) AND " +
+           "(:hora IS NULL OR r.horaInicio = :hora) AND " +
+           "(:personas IS NULL OR r.numPersonas = :personas)")
+    List<Reserva> buscarPorUsuarioConFiltros(
+        @Param("cedula") String cedula,
         @Param("fecha") LocalDate fecha, 
         @Param("hora") LocalTime hora, 
         @Param("personas") Integer personas
