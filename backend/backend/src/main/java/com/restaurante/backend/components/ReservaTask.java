@@ -55,7 +55,7 @@ public class ReservaTask {
      * Cancelación automática por impago.
      * Se ejecuta cada hora para cancelar reservas que están a menos de 24h de iniciar y siguen PENDIENTES.
      */
-    @Scheduled(cron = "0 * * * * *")
+    @Scheduled(cron = "0 0 * * * *")
     @Transactional
     public void cancelarReservasNoPagadas() {
         // PUNTO DE CORTE: Si una reserva empieza dentro de 24 horas, ya debería estar pagada.

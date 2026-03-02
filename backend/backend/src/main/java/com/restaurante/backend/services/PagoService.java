@@ -9,6 +9,7 @@ import com.restaurante.backend.dtos.PagoResponseDTO;
 import com.restaurante.backend.entities.EstadoReserva;
 import com.restaurante.backend.entities.Pago;
 import com.restaurante.backend.entities.Reserva;
+import com.restaurante.backend.exceptions.ResourceNotFoundException;
 import com.restaurante.backend.mappers.PagoMapper;
 import com.restaurante.backend.repositories.EstadoReservaRepository;
 import com.restaurante.backend.repositories.PagoRepository;
@@ -31,7 +32,7 @@ public class PagoService {
     public PagoResponseDTO procesarConfirmacionPago(PagoRequestDTO dto) {
         // 1. Buscar la reserva
         Reserva reserva = reservaRepo.findById(dto.getIdReserva())
-                .orElseThrow(() -> new RuntimeException("Reserva no existe con ID: " + dto.getIdReserva()));
+                .orElseThrow(() -> new ResourceNotFoundException("Reserva", dto.getIdReserva().toString()));
 
         // 2. Crear y guardar el Pago usando el mapper
         Pago pago = pagoMapper.toEntity(dto);
@@ -41,7 +42,7 @@ public class PagoService {
 
         // 3. Actualizar el estado de la reserva
         EstadoReserva estadoPagada = estadoRepo.findByNombre("PAGADA")
-                .orElseThrow(() -> new RuntimeException("Estado PAGADA no configurado"));
+                .orElseThrow(() -> new ResourceNotFoundException("Estado PAGADA no configurado en la base de datos"));
         reserva.setEstadoReserva(estadoPagada);
         reservaRepo.save(reserva);
 

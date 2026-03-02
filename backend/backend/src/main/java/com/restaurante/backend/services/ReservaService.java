@@ -15,6 +15,9 @@ import com.restaurante.backend.entities.EstadoReserva;
 import com.restaurante.backend.entities.Mesa;
 import com.restaurante.backend.entities.Pago;
 import com.restaurante.backend.entities.Reserva;
+import com.restaurante.backend.exceptions.PaymentException;
+import com.restaurante.backend.exceptions.ResourceNotFoundException;
+import com.restaurante.backend.exceptions.ValidationException;
 import com.restaurante.backend.mappers.PagoMapper;
 import com.restaurante.backend.mappers.ReservaMapper;
 import com.restaurante.backend.repositories.EstadoReservaRepository;
@@ -54,11 +57,11 @@ public class ReservaService {
         LocalTime horaDeseada = dto.getHoraInicio();
 
         if (horaDeseada.isBefore(HORA_APERTURA)) {
-            throw new RuntimeException("Por favor seleccione una hora de reserva entre las 12:00 y las 00:00.");
+            throw new ValidationException("hora", "Por favor seleccione una hora de reserva entre las 12:00 y las 00:00.");
         }
 
         if (horaDeseada.isAfter(HORA_CIERRE)) {
-            throw new RuntimeException("Por favor seleccione una hora de reserva entre las 12:00 y las 00:00.");
+            throw new ValidationException("hora", "Por favor seleccione una hora de reserva entre las 12:00 y las 00:00.");
         }
 
         // 2. Lógica de negocio: Calcular hora fin (Inicio + 2 horas)
@@ -73,13 +76,13 @@ public class ReservaService {
                     m.getIdMesa(), reserva.getFecha(), 
                     reserva.getHoraInicio(), reserva.getHoraFin()).isEmpty())
             .findFirst()
-            .orElseThrow(() -> new RuntimeException("No hay mesas disponibles para " + reserva.getNumPersonas() + " personas en ese horario."));
+            .orElseThrow(() -> new ValidationException("general", "No hay mesas disponibles para " + reserva.getNumPersonas() + " personas en ese horario."));
 
         reserva.setMesa(mesaAsignada);
         
         // 5. Asignar estado inicial (Busca en la BD el objeto EstadoReserva)
         EstadoReserva estadoPendiente = estadoRepo.findByNombre("PENDIENTE")
-                .orElseThrow(() -> new RuntimeException("Estado PENDIENTE no configurado"));
+                .orElseThrow(() -> new ResourceNotFoundException("Estado PENDIENTE no configurado en la base de datos"));
         reserva.setEstadoReserva(estadoPendiente);
 
         Double montoTotal = reserva.getNumPersonas() * PRECIO_POR_PERSONA_USD;
@@ -103,7 +106,7 @@ public class ReservaService {
     @Transactional
     public PagoResponseDTO procesarPagoReserva(Long idReserva, String idPasarela, Double monto) {
         Reserva reserva = reservaRepo.findById(idReserva)
-                .orElseThrow(() -> new RuntimeException("Reserva no encontrada"));
+                .orElseThrow(() -> new ResourceNotFoundException("Reserva", idReserva.toString()));
 
         // VALIDACIÓN DE SEGURIDAD: 
         // Verificamos que el monto pagado coincida con lo esperado (numPersonas * 5)
@@ -115,7 +118,7 @@ public class ReservaService {
         }
 
         EstadoReserva estadoPagada = estadoRepo.findByNombre("PAGADA")
-                .orElseThrow(() -> new RuntimeException("Estado PAGADA no configurado"));
+                .orElseThrow(() -> new ResourceNotFoundException("Estado PAGADA no configurado en la base de datos"));
 
         Pago pago = new Pago();
         pago.setReserva(reserva);
@@ -139,11 +142,11 @@ public class ReservaService {
     public ReservaResponseDTO cancelarReserva(Long idReserva) {
         // 1. Buscar la reserva
         Reserva reserva = reservaRepo.findById(idReserva)
-                .orElseThrow(() -> new RuntimeException("Reserva no encontrada"));
+                .orElseThrow(() -> new ResourceNotFoundException("Reserva", idReserva.toString()));
 
         // 2. Validación de fecha
         if (reserva.getFecha().isBefore(LocalDate.now())) {
-            throw new RuntimeException("No se pueden cancelar reservas de fechas pasadas.");
+            throw new ValidationException("general", "No se pueden cancelar reservas de fechas pasadas.");
         }
 
         // 3. Procesar Reembolso si existe un pago asociado
@@ -152,7 +155,7 @@ public class ReservaService {
             boolean reembolsoExitoso = ejecutarReembolsoStripe(pago.getIdPasarela(), pago.getMonto());
             
             if (!reembolsoExitoso) {
-                throw new RuntimeException("Error al procesar la devolución en Stripe");
+                throw new PaymentException("general", "Error al procesar la devolución en Stripe");
             }
             
             pago.setEstadoPago("refunded");
@@ -161,7 +164,7 @@ public class ReservaService {
 
         // 4. Cambiar estado a CANCELADA
         EstadoReserva estadoCancelado = estadoRepo.findByNombre("CANCELADA")
-                .orElseThrow(() -> new RuntimeException("Estado CANCELADA no configurado en la base de datos"));
+                .orElseThrow(() -> new ResourceNotFoundException("Estado CANCELADA no configurado en la base de datos"));
         
         reserva.setEstadoReserva(estadoCancelado);
         Reserva guardada = reservaRepo.save(reserva);
