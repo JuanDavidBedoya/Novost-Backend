@@ -8,6 +8,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.restaurante.backend.entities.Reserva;
+import com.restaurante.backend.exceptions.PaymentException;
+import com.restaurante.backend.exceptions.ResourceNotFoundException;
 import com.restaurante.backend.repositories.ReservaRepository;
 import com.stripe.Stripe;
 import com.stripe.exception.StripeException;
@@ -39,7 +41,7 @@ public class PasarelaService {
         try {
             // 1. Buscamos la reserva en la base de datos
             Reserva reserva = reservaRepo.findById(idReserva)
-                    .orElseThrow(() -> new RuntimeException("Reserva no encontrada"));
+                    .orElseThrow(() -> new ResourceNotFoundException("Reserva", idReserva.toString()));
 
             // 2. Calculamos el monto real AQUÍ (Seguridad total)
             Double montoCalculado = reserva.getNumPersonas() * PRECIO_POR_PERSONA;
@@ -60,7 +62,12 @@ public class PasarelaService {
                     .build();
 
             // 5. Llamada a Stripe
-            PaymentIntent intent = PaymentIntent.create(params);
+            PaymentIntent intent;
+            try {
+                intent = PaymentIntent.create(params);
+            } catch (StripeException e) {
+                throw new PaymentException("general", "No se pudo inicializar el pago: " + e.getMessage());
+            }
             
             Map<String, String> respuesta = new HashMap<>();
             respuesta.put("idPasarela", intent.getId());
@@ -68,8 +75,12 @@ public class PasarelaService {
 
             return respuesta;
 
-        } catch (StripeException e) {
-            throw new RuntimeException("No se pudo inicializar el pago: " + e.getMessage());
+        } catch (PaymentException e) {
+            throw e;
+        } catch (ResourceNotFoundException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new PaymentException("general", "Error al procesar el pago: " + e.getMessage());
         }
     }
 }
