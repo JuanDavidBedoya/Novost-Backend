@@ -16,35 +16,35 @@ public class AuthController {
         this.authService = authService;
     }
 
-    @PostMapping("/login") //Publica
+    @PostMapping("/login")
     public ResponseEntity<String> login(@Valid @RequestBody LoginRequestDTO request) {
         authService.iniciarLogin(request);
         return ResponseEntity.ok("Código de verificación enviado al correo");
     }
 
-    @PostMapping("/verificar-login") //Publica
+    @PostMapping("/verificar-login")
     public ResponseEntity<AuthResponseDTO> verifyLogin(@Valid @RequestBody VerifyCodeDTO request) {
         return ResponseEntity.ok(authService.verificarCodigo(request));
     }
 
-    @PostMapping("/registrar") //Publica
+    @PostMapping("/registrar")
     public ResponseEntity<UsuarioResponseDTO> register(@Valid @RequestBody RegistroUsuarioDTO request) {
         return ResponseEntity.ok(authService.registrar(request));
     }
 
-    @PostMapping("/recobrar-password") //Publica
+    @PostMapping("/recobrar-password")
     public ResponseEntity<String> recoverPassword(@Valid @RequestBody SolicitarRecuperacionDTO request) {
         authService.solicitarRecuperacionPassword(request.email());
         return ResponseEntity.ok("Enlace de recuperación enviado");
     }
 
-    @PostMapping("/resetear-password") //Publica
+    @PostMapping("/resetear-password")
     public ResponseEntity<String> resetPassword(@Valid @RequestBody RestaurarPasswordDTO request) {
         authService.restaurarPassword(request.token(), request.nuevaContrasenia());
         return ResponseEntity.ok("Contraseña restaurada exitosamente");
     }
 
-    @PostMapping("/registrar-trabajador") //ADMINISTRADOR
+    @PostMapping("/registrar-trabajador")
     public ResponseEntity<UsuarioResponseDTO> registerTrabajador(@Valid @RequestBody RegistroUsuarioDTO request) {
         return ResponseEntity.ok(authService.registrarTrabajador(request));
     }

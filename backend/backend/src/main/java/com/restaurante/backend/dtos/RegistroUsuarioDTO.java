@@ -7,8 +7,12 @@ import jakarta.validation.constraints.Size;
 
 public record RegistroUsuarioDTO(
     @NotBlank(message = "La cédula es requerida")
+    @Pattern(
+        regexp = "^\\d{5,20}$",
+        message = "La cédula debe contener solo números y tener entre 5 y 20 dígitos"
+    )
     String cedula,
-
+    
     @NotBlank(message = "El nombre completo es requerido")
     @Pattern(regexp = "^[a-zA-ZáéíóúÁÉÍÓÚñÑ\\s]+$", message = "El nombre solo debe contener letras")
     String nombre,

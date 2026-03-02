@@ -18,18 +18,18 @@ public class UsuarioController {
         this.usuarioService = usuarioService;
     }
 
-    @GetMapping("/{cedula}") //ADMINISTRADOR, CLIENTE, TRABAJADOR
+    @GetMapping("/{cedula}")
     public ResponseEntity<UsuarioResponseDTO> getProfile(@PathVariable String cedula) {
         return ResponseEntity.ok(usuarioService.obtenerUsuario(cedula));
     }
 
-    @PutMapping("/{cedula}") //ADMINISTRADOR, CLIENTE, TRABAJADOR
+    @PutMapping("/{cedula}")
     public ResponseEntity<String> updateProfile(@PathVariable String cedula, @Valid @RequestBody ActualizarPerfilDTO dto) {
         usuarioService.actualizarPerfil(cedula, dto);
         return ResponseEntity.ok("Perfil actualizado");
     }
 
-    @PutMapping("/{cedula}/password") //ADMINISTRADOR, CLIENTE, TRABAJADOR
+    @PutMapping("/{cedula}/password")
     public ResponseEntity<String> changePassword(@PathVariable String cedula, @Valid @RequestBody CambiarContrasenaDTO dto) {
         usuarioService.cambiarContrasenia(cedula, dto);
         return ResponseEntity.ok("Contraseña actualizada exitosamente");
