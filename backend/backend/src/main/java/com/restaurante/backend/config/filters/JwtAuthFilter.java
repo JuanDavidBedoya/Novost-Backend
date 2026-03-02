@@ -39,27 +39,39 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         final String userEmail; 
 
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            System.out.println("DEBUG JwtAuthFilter: No Authorization header found or invalid format");
             filterChain.doFilter(request, response);
             return;
         }
 
         jwt = authHeader.substring(7);
-        userEmail = jwtService.extractUsername(jwt);
+        System.out.println("DEBUG JwtAuthFilter: Token received: " + jwt.substring(0, Math.min(20, jwt.length())) + "...");
+        
+        try {
+            userEmail = jwtService.extractUsername(jwt);
+            System.out.println("DEBUG JwtAuthFilter: Username from token: " + userEmail);
 
-        if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
-            
-            if (jwtService.isTokenValid(jwt, userDetails)) {
-                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                        userDetails,
-                        null,
-                        userDetails.getAuthorities()
-                );
-                authToken.setDetails(
-                        new WebAuthenticationDetailsSource().buildDetails(request)
-                );
-                SecurityContextHolder.getContext().setAuthentication(authToken);
+            if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
+                
+                if (jwtService.isTokenValid(jwt, userDetails)) {
+                    System.out.println("DEBUG JwtAuthFilter: Token is valid for user: " + userEmail);
+                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                            userDetails,
+                            null,
+                            userDetails.getAuthorities()
+                    );
+                    authToken.setDetails(
+                            new WebAuthenticationDetailsSource().buildDetails(request)
+                    );
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                    System.out.println("DEBUG JwtAuthFilter: Authentication set in SecurityContext");
+                } else {
+                    System.out.println("DEBUG JwtAuthFilter: Token is NOT valid");
+                }
             }
+        } catch (Exception e) {
+            System.err.println("DEBUG JwtAuthFilter: Error processing token: " + e.getMessage());
         }
         filterChain.doFilter(request, response);
     }

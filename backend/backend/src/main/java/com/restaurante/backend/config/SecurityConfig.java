@@ -36,7 +36,19 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource())) 
             .csrf(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(auth -> auth
-                .anyRequest().permitAll()   
+                // RUTAS PÚBLICAS (sin autenticación)
+                .requestMatchers(
+                    "/auth/login",
+                    "/auth/verificar-login",
+                    "/auth/registrar",
+                    "/auth/recobrar-password",
+                    "/auth/resetear-password",
+                    "/pagos/crear-intento",
+                    "/pagos/confirmar",
+                    "/webhooks/stripe"
+                ).permitAll()
+                // RUTAS PRIVADAS (requieren autenticación JWT)
+                .anyRequest().authenticated()   
             )
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
