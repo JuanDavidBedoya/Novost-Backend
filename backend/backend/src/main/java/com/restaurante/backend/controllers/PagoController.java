@@ -25,7 +25,7 @@ public class PagoController {
     private final PagoService pagoService; // Inyectamos el servicio, no los repositorios
     private final PasarelaService pasarelaService; // Servicio para interactuar con Stripe
 
-    @PostMapping("/crear-intento")
+    @PostMapping("/crear-intento") //PUBLICA
     public ResponseEntity<Map<String, String>> iniciarPago(@RequestParam(name = "idReserva") Long idReserva) {
         // 1. Log para confirmar que el dato llegó al servidor
         System.out.println("DEBUG: Recibida solicitud para reserva ID: " + idReserva);
@@ -40,7 +40,7 @@ public class PagoController {
         }
     }
 
-    @PostMapping("/confirmar")
+    @PostMapping("/confirmar") //PUBLICA
     public ResponseEntity<PagoResponseDTO> confirmarPago(@RequestBody PagoRequestDTO pagoRequest) {
         // Delegamos toda la lógica al servicio
         PagoResponseDTO respuesta = pagoService.procesarConfirmacionPago(pagoRequest);

@@ -29,7 +29,7 @@ public class ReservaController {
 
     private final ReservaService reservaService;
 
-    @GetMapping("/buscar")
+    @GetMapping("/buscar") //ADMINISTRADOR, CLIENTE, TRABAJADOR
     public ResponseEntity<List<ReservaResponseDTO>> buscar(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime hora,
@@ -46,7 +46,7 @@ public class ReservaController {
     }
 
     // Confirma el pago que viene de la pasarela externa
-    @PostMapping("/{id}/confirmar-pago")
+    @PostMapping("/{id}/confirmar-pago") //PUBLICA
     public ResponseEntity<PagoResponseDTO> confirmar(
             @PathVariable Long id, 
             @RequestBody ReservaConfirmarPagoRequestDTO pagoRequest) {
@@ -61,7 +61,7 @@ public class ReservaController {
         return ResponseEntity.ok(pagoRealizado);
     }
 
-    @PostMapping("/{id}/cancelar")
+    @PostMapping("/{id}/cancelar")//ADMINISTRADOR, CLIENTE, TRABAJADOR
     public ResponseEntity<ReservaResponseDTO> cancelarReserva(@PathVariable Long id) {
         // Llamamos al servicio para ejecutar la lógica de negocio
         ReservaResponseDTO response = reservaService.cancelarReserva(id);
