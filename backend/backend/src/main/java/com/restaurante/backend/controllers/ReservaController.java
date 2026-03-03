@@ -82,4 +82,14 @@ public class ReservaController {
         
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping("/todas")
+    public ResponseEntity<List<ReservaResponseDTO>> buscarTodasLasReservas(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime hora,
+            @RequestParam(required = false) Integer personas) {
+        
+        // Llama al método que busca en toda la base de datos sin filtrar por usuario
+        return ResponseEntity.ok(reservaService.buscarReservas(fecha, hora, personas));
+    }
 }
