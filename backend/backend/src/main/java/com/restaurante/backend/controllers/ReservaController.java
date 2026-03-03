@@ -92,4 +92,14 @@ public class ReservaController {
         // Llama al método que busca en toda la base de datos sin filtrar por usuario
         return ResponseEntity.ok(reservaService.buscarReservas(fecha, hora, personas));
     }
+
+    @GetMapping("/disponibilidad")
+    public ResponseEntity<Integer> obtenerMesasDisponibles(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime hora,
+            @RequestParam(required = false) Integer personas) {
+        
+        int disponibles = reservaService.contarMesasDisponibles(fecha, hora, personas);
+        return ResponseEntity.ok(disponibles);
+    }
 }

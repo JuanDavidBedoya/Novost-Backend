@@ -47,7 +47,7 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
         @Param("horaFin") LocalTime horaFin
     );
 
-    @Query("SELECT r FROM Reserva r WHERE " +
+    @Query("SELECT r FROM Reserva r WHERE r.estadoReserva.nombre <> 'CANCELADA' AND " +
            "(:fecha IS NULL OR r.fecha = :fecha) AND " +
            "(:hora IS NULL OR r.horaInicio = :hora) AND " +
            "(:personas IS NULL OR r.numPersonas = :personas)")
@@ -57,6 +57,20 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
         @Param("personas") Integer personas
     );
 
+    // Nueva consulta que incluye reservas canceladas (para gestión de reservas)
+    @Query("SELECT r FROM Reserva r WHERE " +
+           "(:fecha IS NULL OR r.fecha = :fecha) AND " +
+           "(:hora IS NULL OR r.horaInicio = :hora) AND " +
+           "(:personas IS NULL OR r.numPersonas = :personas)")
+    List<Reserva> buscarTodasConFiltros(
+        @Param("fecha") LocalDate fecha, 
+        @Param("hora") LocalTime hora, 
+        @Param("personas") Integer personas
+    );
+
+    @Query("SELECT r FROM Reserva r WHERE r.estadoReserva.nombre <> 'CANCELADA' AND r.fecha = :fecha")
+    List<Reserva> buscarReservasPorFecha(@Param("fecha") LocalDate fecha);
+
     @Query("SELECT r FROM Reserva r WHERE r.usuario.cedula = :cedula")
     List<Reserva> findByUsuarioCedula(@Param("cedula") String cedula);
 
@@ -65,6 +79,18 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
            "(:hora IS NULL OR r.horaInicio = :hora) AND " +
            "(:personas IS NULL OR r.numPersonas = :personas)")
     List<Reserva> buscarPorUsuarioConFiltros(
+        @Param("cedula") String cedula,
+        @Param("fecha") LocalDate fecha, 
+        @Param("hora") LocalTime hora, 
+        @Param("personas") Integer personas
+    );
+
+    // Nueva consulta que incluye canceladas para el historial del usuario
+    @Query("SELECT r FROM Reserva r WHERE r.usuario.cedula = :cedula AND " +
+           "(:fecha IS NULL OR r.fecha = :fecha) AND " +
+           "(:hora IS NULL OR r.horaInicio = :hora) AND " +
+           "(:personas IS NULL OR r.numPersonas = :personas)")
+    List<Reserva> buscarTodasPorUsuarioConFiltros(
         @Param("cedula") String cedula,
         @Param("fecha") LocalDate fecha, 
         @Param("hora") LocalTime hora, 

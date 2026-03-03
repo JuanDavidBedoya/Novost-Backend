@@ -167,7 +167,8 @@ class ReservaServiceTest {
         List<Reserva> reservas = List.of(reserva);
         ReservaResponseDTO dto = new ReservaResponseDTO();
         
-        when(reservaRepo.buscarConFiltros(any(), any(), any())).thenReturn(reservas);
+        // Mock que acepta cualquier argumento
+        when(reservaRepo.buscarTodasConFiltros(any(), any(), any())).thenReturn(reservas);
         when(reservaMapper.toDto(reserva)).thenReturn(dto);
 
         List<ReservaResponseDTO> result = reservaService.buscarReservas(
@@ -264,5 +265,119 @@ class ReservaServiceTest {
 
         assertNotNull(result);
         verify(emailService).enviarCorreo(anyString(), anyString(), anyString());
+    }
+
+    // Tests para contarMesasDisponibles
+    
+    @Test
+    void contarMesasDisponibles_SinFecha_RetornaTodasLasMesas() {
+        List<Mesa> mesas = List.of(
+            crearMesa(1L, 1, 4),
+            crearMesa(2L, 2, 6),
+            crearMesa(3L, 3, 2)
+        );
+        
+        when(mesaRepo.findAll()).thenReturn(mesas);
+        
+        int resultado = reservaService.contarMesasDisponibles(null, null, null);
+        
+        assertEquals(3, resultado);
+        verify(reservaRepo, never()).buscarReservasPorFecha(any());
+    }
+    
+    @Test
+    void contarMesasDisponibles_SoloFecha_RetornaTodasLasMesas() {
+        List<Mesa> mesas = List.of(
+            crearMesa(1L, 1, 4),
+            crearMesa(2L, 2, 6)
+        );
+        
+        when(mesaRepo.findAll()).thenReturn(mesas);
+        
+        // Cuando solo hay fecha (sin hora ni personas), retorna todas las mesas
+        int resultado = reservaService.contarMesasDisponibles(LocalDate.now().plusDays(1), null, null);
+        
+        assertEquals(2, resultado); // Retorna todas las mesas porque no hay filtros específicos
+        verify(reservaRepo, never()).buscarReservasPorFecha(any());
+    }
+    
+    @Test
+    void contarMesasDisponibles_FechaYHora_RetornaMesasDisponibles() {
+        Mesa mesa1 = crearMesa(1L, 1, 4);
+        Mesa mesa2 = crearMesa(2L, 2, 6);
+        
+        Reserva reservaOcupada = new Reserva();
+        reservaOcupada.setMesa(mesa1);
+        reservaOcupada.setFecha(LocalDate.now().plusDays(1));
+        reservaOcupada.setHoraInicio(LocalTime.of(14, 0));
+        reservaOcupada.setHoraFin(LocalTime.of(16, 0));
+        
+        when(mesaRepo.findAll()).thenReturn(List.of(mesa1, mesa2));
+        when(reservaRepo.buscarReservasPorFecha(any())).thenReturn(List.of(reservaOcupada));
+        
+        int resultado = reservaService.contarMesasDisponibles(
+            LocalDate.now().plusDays(1), 
+            LocalTime.of(14, 0), 
+            null
+        );
+        
+        assertEquals(1, resultado); // Solo mesa2 está disponible a las 14:00
+    }
+    
+    @Test
+    void contarMesasDisponibles_FechaHoraYPersonas_RetornaMesasDisponibles() {
+        Mesa mesa1 = crearMesa(1L, 1, 4);
+        Mesa mesa2 = crearMesa(2L, 2, 6);
+        Mesa mesa3 = crearMesa(3L, 3, 2);
+        
+        Reserva reservaOcupada = new Reserva();
+        reservaOcupada.setMesa(mesa1);
+        reservaOcupada.setFecha(LocalDate.now().plusDays(1));
+        reservaOcupada.setHoraInicio(LocalTime.of(14, 0));
+        reservaOcupada.setHoraFin(LocalTime.of(16, 0));
+        
+        when(mesaRepo.findAll()).thenReturn(List.of(mesa1, mesa2, mesa3));
+        when(reservaRepo.buscarReservasPorFecha(any())).thenReturn(List.of(reservaOcupada));
+        
+        // Buscamos mesa para 5 personas a las 14:00
+        int resultado = reservaService.contarMesasDisponibles(
+            LocalDate.now().plusDays(1), 
+            LocalTime.of(14, 0), 
+            5
+        );
+        
+        // Mesa1 está ocupada, Mesa3 solo tiene capacidad 2 (no sirve para 5)
+        // Solo Mesa2 sirve (capacidad 6) y no está ocupada
+        assertEquals(1, resultado);
+    }
+    
+    @Test
+    void contarMesasDisponibles_SinDisponibilidad_RetornaCero() {
+        Mesa mesa1 = crearMesa(1L, 1, 4);
+        
+        Reserva reservaOcupada = new Reserva();
+        reservaOcupada.setMesa(mesa1);
+        reservaOcupada.setFecha(LocalDate.now().plusDays(1));
+        reservaOcupada.setHoraInicio(LocalTime.of(14, 0));
+        reservaOcupada.setHoraFin(LocalTime.of(16, 0));
+        
+        when(mesaRepo.findAll()).thenReturn(List.of(mesa1));
+        when(reservaRepo.buscarReservasPorFecha(any())).thenReturn(List.of(reservaOcupada));
+        
+        int resultado = reservaService.contarMesasDisponibles(
+            LocalDate.now().plusDays(1), 
+            LocalTime.of(14, 0), 
+            null
+        );
+        
+        assertEquals(0, resultado);
+    }
+    
+    private Mesa crearMesa(Long id, int numero, int capacidad) {
+        Mesa mesa = new Mesa();
+        mesa.setIdMesa(id);
+        mesa.setNumeroMesa(numero);
+        mesa.setCapacidad(capacidad);
+        return mesa;
     }
 }
