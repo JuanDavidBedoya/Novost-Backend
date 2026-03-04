@@ -25,7 +25,7 @@ public class PagoController {
     private final PagoService pagoService;
     private final PasarelaService pasarelaService;
 
-    @PostMapping("/crear-intento") //PUBLICA
+    @PostMapping("/crear-intento")
     public ResponseEntity<Map<String, String>> iniciarPago(@RequestParam(name = "idReserva") Long idReserva) {
         System.out.println("DEBUG: Recibida solicitud para reserva ID: " + idReserva);
 

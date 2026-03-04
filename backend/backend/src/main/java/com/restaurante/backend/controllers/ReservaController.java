@@ -89,7 +89,6 @@ public class ReservaController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime hora,
             @RequestParam(required = false) Integer personas) {
         
-        // Llama al método que busca en toda la base de datos sin filtrar por usuario
         return ResponseEntity.ok(reservaService.buscarReservas(fecha, hora, personas));
     }
 

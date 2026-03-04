@@ -57,7 +57,6 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
         @Param("personas") Integer personas
     );
 
-    // Nueva consulta que incluye reservas canceladas (para gestión de reservas)
     @Query("SELECT r FROM Reserva r WHERE " +
            "(:fecha IS NULL OR r.fecha = :fecha) AND " +
            "(:hora IS NULL OR r.horaInicio = :hora) AND " +
@@ -85,7 +84,6 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
         @Param("personas") Integer personas
     );
 
-    // Nueva consulta que incluye canceladas para el historial del usuario
     @Query("SELECT r FROM Reserva r WHERE r.usuario.cedula = :cedula AND " +
            "(:fecha IS NULL OR r.fecha = :fecha) AND " +
            "(:hora IS NULL OR r.horaInicio = :hora) AND " +

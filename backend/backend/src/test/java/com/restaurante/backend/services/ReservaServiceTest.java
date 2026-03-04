@@ -167,7 +167,6 @@ class ReservaServiceTest {
         List<Reserva> reservas = List.of(reserva);
         ReservaResponseDTO dto = new ReservaResponseDTO();
         
-        // Mock que acepta cualquier argumento
         when(reservaRepo.buscarTodasConFiltros(any(), any(), any())).thenReturn(reservas);
         when(reservaMapper.toDto(reserva)).thenReturn(dto);
 
@@ -294,10 +293,9 @@ class ReservaServiceTest {
         
         when(mesaRepo.findAll()).thenReturn(mesas);
         
-        // Cuando solo hay fecha (sin hora ni personas), retorna todas las mesas
         int resultado = reservaService.contarMesasDisponibles(LocalDate.now().plusDays(1), null, null);
         
-        assertEquals(2, resultado); // Retorna todas las mesas porque no hay filtros específicos
+        assertEquals(2, resultado);
         verify(reservaRepo, never()).buscarReservasPorFecha(any());
     }
     
@@ -321,7 +319,7 @@ class ReservaServiceTest {
             null
         );
         
-        assertEquals(1, resultado); // Solo mesa2 está disponible a las 14:00
+        assertEquals(1, resultado);
     }
     
     @Test
@@ -339,15 +337,12 @@ class ReservaServiceTest {
         when(mesaRepo.findAll()).thenReturn(List.of(mesa1, mesa2, mesa3));
         when(reservaRepo.buscarReservasPorFecha(any())).thenReturn(List.of(reservaOcupada));
         
-        // Buscamos mesa para 5 personas a las 14:00
         int resultado = reservaService.contarMesasDisponibles(
             LocalDate.now().plusDays(1), 
             LocalTime.of(14, 0), 
             5
         );
         
-        // Mesa1 está ocupada, Mesa3 solo tiene capacidad 2 (no sirve para 5)
-        // Solo Mesa2 sirve (capacidad 6) y no está ocupada
         assertEquals(1, resultado);
     }
     

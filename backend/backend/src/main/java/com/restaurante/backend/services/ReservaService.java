@@ -89,7 +89,6 @@ public class ReservaService {
     }
     
     public List<ReservaResponseDTO> buscarReservas(LocalDate fecha, LocalTime hora, Integer personas) {
-        // Usar buscarTodasConFiltros que incluye reservas canceladas
         List<Reserva> entidades = reservaRepo.buscarTodasConFiltros(fecha, hora, personas);
         
         return entidades.stream()
@@ -98,55 +97,41 @@ public class ReservaService {
     }
 
     public int contarMesasDisponibles(LocalDate fecha, LocalTime hora, Integer personas) {
-        // Obtener todas las mesas
         List<Mesa> todasLasMesas = mesaRepo.findAll();
         
-        // Si no hay fecha, todas las mesas están disponibles
         if (fecha == null) {
             return todasLasMesas.size();
         }
         
-        // Si solo hay fecha (sin hora y sin personas), retornar todas las mesas
-        // porque no hay suficientes filtros para determinar disponibilidad específica
         if (hora == null && personas == null) {
             return todasLasMesas.size();
         }
         
-        // Obtener TODAS las reservas NO CANCELADAS para la fecha dada
         List<Reserva> reservasFecha = reservaRepo.buscarReservasPorFecha(fecha);
-        
-        // Si hay hora especificada, filtrar las mesas que están ocupadas en el horario solicitado
-        // La nueva reserva durará 2 horas (hora + 2 horas)
         if (hora != null) {
             LocalTime horaFinNuevaReserva = hora.plusHours(2);
             
-            // Filtrar las reservas que se solapan con el horario de la nueva reserva
-            // Una reserva se solapa si: reserva.horaInicio < nuevaReserva.horaFin AND reserva.horaFin > nuevaReserva.horaInicio
             final LocalTime horaFinReserva = horaFinNuevaReserva;
             reservasFecha = reservasFecha.stream()
                 .filter(r -> r.getHoraInicio().isBefore(horaFinReserva) && r.getHoraFin().isAfter(hora))
                 .collect(Collectors.toList());
         }
         
-        // Obtener IDs de mesas ocupadas
         List<Long> idsMesasOcupadas = reservasFecha.stream()
                 .map(r -> r.getMesa().getIdMesa())
                 .distinct()
                 .collect(Collectors.toList());
         
-        // Si hay cantidad de personas especificada, filtrar solo mesas con capacidad suficiente
         if (personas != null) {
             List<Mesa> mesasAdecuadas = todasLasMesas.stream()
                     .filter(m -> m.getCapacidad() >= personas)
                     .collect(Collectors.toList());
             
-            // Contar mesas adecuadas que no están ocupadas
             return (int) mesasAdecuadas.stream()
                     .filter(m -> !idsMesasOcupadas.contains(m.getIdMesa()))
                     .count();
         }
         
-        // Contar mesas disponibles (no ocupadas)
         return (int) todasLasMesas.stream()
                 .filter(m -> !idsMesasOcupadas.contains(m.getIdMesa()))
                 .count();
@@ -163,7 +148,6 @@ public class ReservaService {
 
     @Transactional
     public List<ReservaResponseDTO> buscarReservasPorUsuarioConFiltros(String cedula, LocalDate fecha, LocalTime hora, Integer personas) {
-        // Usar la nueva consulta que incluye canceladas
         List<Reserva> entidades = reservaRepo.buscarTodasPorUsuarioConFiltros(cedula, fecha, hora, personas);
         
         return entidades.stream()
