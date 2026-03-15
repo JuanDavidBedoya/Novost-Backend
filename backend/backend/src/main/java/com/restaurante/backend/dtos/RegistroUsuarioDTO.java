@@ -30,5 +30,13 @@ public record RegistroUsuarioDTO(
 
     @NotBlank(message = "La contraseña es requerida")
     @Size(min = 8, message = "La contraseña debe tener al menos 8 caracteres")
-    String contrasena
+    @Pattern(
+        regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[\\W_]).*$",
+        message = "La contraseña debe contener al menos una mayúscula, una minúscula, un número y un carácter especial"
+    )
+    String contrasena,
+
+    @NotBlank(message = "El captcha es requerido")
+    String captchaToken
+    
 ) {}

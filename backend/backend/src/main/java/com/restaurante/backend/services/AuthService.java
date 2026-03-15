@@ -10,6 +10,15 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.HttpEntity;
+import java.util.Map;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
@@ -36,6 +45,9 @@ public class AuthService {
         this.emailService = emailService;
         this.usuarioMapper = usuarioMapper;
     }
+
+    @Value("${google.recaptcha.secret}")
+    private String recaptchaSecret;
 
     @Transactional
     public void iniciarLogin(LoginRequestDTO request) {
@@ -88,6 +100,7 @@ public class AuthService {
 
     @Transactional
     public UsuarioResponseDTO registrar(RegistroUsuarioDTO request) {
+        verificarCaptcha(request.captchaToken());
         if (usuarioRepository.existsById(request.cedula())) {
             throw new RuntimeException("cedula:Cédula duplicada");
         }
@@ -177,5 +190,32 @@ public class AuthService {
         usuario.setTokenRecuperacion(null);
         usuario.setExpiracionCodigo(null);
         usuarioRepository.save(usuario);
+    }
+
+    private void verificarCaptcha(String captchaResponse) {
+        String url = "https://www.google.com/recaptcha/api/siteverify";
+
+        RestTemplate restTemplate = new RestTemplate();
+        
+        MultiValueMap<String, String> map = new LinkedMultiValueMap<>();
+
+        map.add("secret", recaptchaSecret);
+        map.add("response", captchaResponse);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(map, headers);
+
+        try {
+            ResponseEntity<Map> response = restTemplate.postForEntity(url, request, Map.class);
+            Map<String, Object> body = response.getBody();
+            
+            if (body == null || !(Boolean) body.get("success")) {
+                throw new RuntimeException("captcha:Validación de captcha fallida, eres un robot?");
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("captcha:Error al validar el captcha: " + e.getMessage());
+        }
     }
 }

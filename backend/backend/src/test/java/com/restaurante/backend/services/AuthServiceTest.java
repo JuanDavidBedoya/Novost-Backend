@@ -11,10 +11,17 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.MockedConstruction;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -52,6 +59,9 @@ class AuthServiceTest {
 
     @BeforeEach
     void setUp() {
+        // Inyectamos una clave falsa para el @Value en la prueba
+        ReflectionTestUtils.setField(authService, "recaptchaSecret", "dummy-secret-key");
+
         rolUsuario = new Rol();
         rolUsuario.setIdRol(1L);
         rolUsuario.setNombre("USUARIO");
@@ -66,13 +76,37 @@ class AuthServiceTest {
 
         loginRequest = new LoginRequestDTO("juan@example.com", "password123");
 
+        // Actualizamos el DTO para incluir el token del captcha
         registroRequest = new RegistroUsuarioDTO(
             "12345678",
             "Juan Perez",
             "juan@example.com",
             "3001234567",
-            "password123"
+            "password123",
+            "token-valido-de-prueba" // <-- Nuevo campo del captcha
         );
+    }
+
+    // --- NUEVO: Helper para simular la respuesta de Google ---
+    private MockedConstruction<RestTemplate> mockearRespuestaGoogle(boolean isSuccess) {
+        return mockConstruction(RestTemplate.class, (mock, context) -> {
+            Map<String, Object> body = new HashMap<>();
+            body.put("success", isSuccess);
+            ResponseEntity<Map> response = new ResponseEntity<>(body, HttpStatus.OK);
+            when(mock.postForEntity(anyString(), any(), eq(Map.class))).thenReturn(response);
+        });
+    }
+
+    // --- NUEVO: Test para cuando falla el Captcha ---
+    @Test
+    void registrar_CaptchaInvalido_ThrowsException() {
+        // Simulamos que Google responde "success: false" (es un robot)
+        try (MockedConstruction<RestTemplate> mocked = mockearRespuestaGoogle(false)) {
+            RuntimeException exception = assertThrows(RuntimeException.class, 
+                () -> authService.registrar(registroRequest));
+
+            assertTrue(exception.getMessage().contains("Validación de captcha fallida"));
+        }
     }
 
     @Test
@@ -180,59 +214,70 @@ class AuthServiceTest {
 
     @Test
     void registrar_CedulaDuplicada_ThrowsException() {
-        when(usuarioRepository.existsById(registroRequest.cedula())).thenReturn(true);
+        // Simulamos que Google dice "ok, es humano"
+        try (MockedConstruction<RestTemplate> mocked = mockearRespuestaGoogle(true)) {
+            when(usuarioRepository.existsById(registroRequest.cedula())).thenReturn(true);
 
-        RuntimeException exception = assertThrows(RuntimeException.class, 
-            () -> authService.registrar(registroRequest));
+            RuntimeException exception = assertThrows(RuntimeException.class, 
+                () -> authService.registrar(registroRequest));
 
-        assertTrue(exception.getMessage().contains("Cédula duplicada"));
+            assertTrue(exception.getMessage().contains("Cédula duplicada"));
+        }
     }
 
     @Test
     void registrar_EmailDuplicado_ThrowsException() {
-        when(usuarioRepository.existsById(registroRequest.cedula())).thenReturn(false);
-        when(usuarioRepository.findByEmail(registroRequest.email())).thenReturn(Optional.of(usuario));
+        try (MockedConstruction<RestTemplate> mocked = mockearRespuestaGoogle(true)) {
+            when(usuarioRepository.existsById(registroRequest.cedula())).thenReturn(false);
+            when(usuarioRepository.findByEmail(registroRequest.email())).thenReturn(Optional.of(usuario));
 
-        RuntimeException exception = assertThrows(RuntimeException.class, 
-            () -> authService.registrar(registroRequest));
+            RuntimeException exception = assertThrows(RuntimeException.class, 
+                () -> authService.registrar(registroRequest));
 
-        assertTrue(exception.getMessage().contains("Email duplicado"));
+            assertTrue(exception.getMessage().contains("Email duplicado"));
+        }
     }
 
     @Test
     void registrar_RolNoEncontrado_ThrowsException() {
-        when(usuarioRepository.existsById(registroRequest.cedula())).thenReturn(false);
-        when(usuarioRepository.findByEmail(registroRequest.email())).thenReturn(Optional.empty());
-        when(rolRepository.findById(1L)).thenReturn(Optional.empty());
+        try (MockedConstruction<RestTemplate> mocked = mockearRespuestaGoogle(true)) {
+            when(usuarioRepository.existsById(registroRequest.cedula())).thenReturn(false);
+            when(usuarioRepository.findByEmail(registroRequest.email())).thenReturn(Optional.empty());
+            when(rolRepository.findById(1L)).thenReturn(Optional.empty());
 
-        RuntimeException exception = assertThrows(RuntimeException.class, 
-            () -> authService.registrar(registroRequest));
+            RuntimeException exception = assertThrows(RuntimeException.class, 
+                () -> authService.registrar(registroRequest));
 
-        assertTrue(exception.getMessage().contains("Rol no encontrado"));
+            assertTrue(exception.getMessage().contains("Rol no encontrado"));
+        }
     }
 
     @Test
     void registrar_RegistroExitoso_ReturnsUsuario() {
-        UsuarioResponseDTO usuarioResponse = new UsuarioResponseDTO(
-            "12345678", "Juan Perez", "juan@example.com", "3001234567", "USUARIO"
-        );
-        
-        when(usuarioRepository.existsById(registroRequest.cedula())).thenReturn(false);
-        when(usuarioRepository.findByEmail(registroRequest.email())).thenReturn(Optional.empty());
-        when(rolRepository.findById(1L)).thenReturn(Optional.of(rolUsuario));
-        when(passwordEncoder.encode(registroRequest.contrasena())).thenReturn("encodedPassword");
-        when(usuarioRepository.save(any(Usuario.class))).thenReturn(usuario);
-        when(usuarioMapper.toUsuarioResponseDTO(usuario)).thenReturn(usuarioResponse);
+        try (MockedConstruction<RestTemplate> mocked = mockearRespuestaGoogle(true)) {
+            UsuarioResponseDTO usuarioResponse = new UsuarioResponseDTO(
+                "12345678", "Juan Perez", "juan@example.com", "3001234567", "USUARIO"
+            );
+            
+            when(usuarioRepository.existsById(registroRequest.cedula())).thenReturn(false);
+            when(usuarioRepository.findByEmail(registroRequest.email())).thenReturn(Optional.empty());
+            when(rolRepository.findById(1L)).thenReturn(Optional.of(rolUsuario));
+            when(passwordEncoder.encode(registroRequest.contrasena())).thenReturn("encodedPassword");
+            when(usuarioRepository.save(any(Usuario.class))).thenReturn(usuario);
+            when(usuarioMapper.toUsuarioResponseDTO(usuario)).thenReturn(usuarioResponse);
 
-        UsuarioResponseDTO result = authService.registrar(registroRequest);
+            UsuarioResponseDTO result = authService.registrar(registroRequest);
 
-        assertNotNull(result);
-        assertEquals("12345678", result.cedula());
-        verify(emailService).enviarCorreo(eq("juan@example.com"), anyString(), anyString());
+            assertNotNull(result);
+            assertEquals("12345678", result.cedula());
+            verify(emailService).enviarCorreo(eq("juan@example.com"), anyString(), anyString());
+        }
     }
 
     @Test
     void registrarTrabajador_RegistroExitoso_ReturnsUsuario() {
+        // En tu código de AuthService, asumo que registrarTrabajador NO valida el captcha, 
+        // por lo que no necesitamos envolverlo en el try de MockedConstruction.
         Rol rolTrabajador = new Rol();
         rolTrabajador.setIdRol(2L);
         rolTrabajador.setNombre("TRABAJADOR");
