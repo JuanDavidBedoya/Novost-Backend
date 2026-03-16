@@ -45,7 +45,8 @@ public class SecurityConfig {
                     "/pagos/confirmar",
                     "/webhooks/stripe",
                     "/reservas/todas",
-                    "/reservas/disponibilidad"
+                    "/reservas/disponibilidad",
+                    "/dashboard/finanzas"
                 ).permitAll()
                 .anyRequest().authenticated()   
             )
