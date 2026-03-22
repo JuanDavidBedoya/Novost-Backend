@@ -63,8 +63,7 @@ public class AuthService {
         usuario.setExpiracionCodigo(LocalDateTime.now().plusMinutes(2));
         usuarioRepository.save(usuario);
 
-        emailService.enviarCorreo(usuario.getEmail(), "Tu código de acceso", 
-            "Tu código de verificación es: " + codigo2FA + ". Expirará en 2 minutos.");
+        emailService.enviarCodigoVerificacion(usuario.getEmail(), usuario.getNombre(), codigo2FA);
     }
 
     @Transactional
@@ -121,8 +120,7 @@ public class AuthService {
 
         usuarioRepository.save(nuevoUsuario);
 
-        emailService.enviarCorreo(nuevoUsuario.getEmail(), "Bienvenido al Restaurante", 
-            "¡Hola " + nuevoUsuario.getNombre() + "! Tu registro ha sido exitoso.");
+        emailService.enviarBienvenidaUsuario(nuevoUsuario.getEmail(), nuevoUsuario.getNombre());
 
         return usuarioMapper.toUsuarioResponseDTO(nuevoUsuario);
     }
@@ -151,9 +149,7 @@ public class AuthService {
         usuarioRepository.save(nuevoTrabajador);
 
 
-        emailService.enviarCorreo(nuevoTrabajador.getEmail(), "Bienvenido al Equipo Novost", 
-            "¡Hola " + nuevoTrabajador.getNombre() + "! Has sido registrado como trabajador en nuestro sistema. " +
-            "Tu contraseña de acceso temporal es: " + request.contrasena() + ". Por favor, cámbiala al ingresar.");
+        emailService.enviarBienvenidaTrabajador(nuevoTrabajador.getEmail(), nuevoTrabajador.getNombre(), request.contrasena());
 
         return usuarioMapper.toUsuarioResponseDTO(nuevoTrabajador);
     }
@@ -171,8 +167,7 @@ public class AuthService {
         //String link = "http://novost-frontend-aws.s3-website.us-east-2.amazonaws.com/restaurar-password?token=" + token;  LINK DESPLEGADO
         String link = "http://localhost:5173/restaurar-password?token=" + token;  // LINK LOCAL
 
-        emailService.enviarCorreo(usuario.getEmail(), "Recuperación de contraseña", 
-            "Ingresa a este link para restaurar tu contraseña: " + link + "\nEste link expira en 5 minutos.");
+        emailService.enviarRecuperacionPassword(usuario.getEmail(), usuario.getNombre(), link);
     }
 
     @Transactional

@@ -152,8 +152,6 @@ public class PedidoService {
         pedido.setEstadoPedido(estadoPagado);
         pedidoRepo.save(pedido);
 
-        // Factura para pago en línea — usuario tomado del pedido, no del JWT
-        // (quien llama aquí es el webhook de Stripe, no el cliente)
         enviarFacturaDesidePedido(pagoPedido);
     }
 
