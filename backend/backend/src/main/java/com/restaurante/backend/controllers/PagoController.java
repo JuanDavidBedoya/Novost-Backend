@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.restaurante.backend.dtos.PagoRequestDTO;
 import com.restaurante.backend.dtos.PagoResponseDTO;
+import com.restaurante.backend.dtos.PedidoRequestDTO;
 import com.restaurante.backend.services.PagoService;
 import com.restaurante.backend.services.PasarelaService;
 
@@ -42,5 +43,18 @@ public class PagoController {
     public ResponseEntity<PagoResponseDTO> confirmarPago(@RequestBody PagoRequestDTO pagoRequest) {
         PagoResponseDTO respuesta = pagoService.procesarConfirmacionPago(pagoRequest);
         return ResponseEntity.ok(respuesta);
+    }
+
+    @PostMapping("/pedido/crear-intento-previo")
+    public ResponseEntity<Map<String, String>> iniciarPagoPedidoPrevio(
+            @RequestBody PedidoRequestDTO pedidoRequest) {
+        try {
+            Map<String, String> datosStripe =
+                    pasarelaService.crearIntentoPagoPedidoPrevio(pedidoRequest);
+            return ResponseEntity.ok(datosStripe);
+        } catch (Exception e) {
+            System.err.println("Error creando intento previo de pedido: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 }

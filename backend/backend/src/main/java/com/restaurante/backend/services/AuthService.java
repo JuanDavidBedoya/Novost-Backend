@@ -168,7 +168,9 @@ public class AuthService {
         usuario.setExpiracionCodigo(LocalDateTime.now().plusMinutes(5)); 
         usuarioRepository.save(usuario);
 
-        String link = "http://novost-frontend-aws.s3-website.us-east-2.amazonaws.com/restaurar-password?token=" + token;
+        //String link = "http://novost-frontend-aws.s3-website.us-east-2.amazonaws.com/restaurar-password?token=" + token;  LINK DESPLEGADO
+        String link = "http://localhost:5173/restaurar-password?token=" + token;  // LINK LOCAL
+
         emailService.enviarCorreo(usuario.getEmail(), "Recuperación de contraseña", 
             "Ingresa a este link para restaurar tu contraseña: " + link + "\nEste link expira en 5 minutos.");
     }
