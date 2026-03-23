@@ -15,6 +15,7 @@ import com.restaurante.backend.entities.Reserva;
 import jakarta.persistence.LockModeType;
 
 public interface ReservaRepository extends JpaRepository<Reserva, Long> {
+
     @Lock(LockModeType.PESSIMISTIC_WRITE) 
     @Query("SELECT r FROM Reserva r WHERE r.mesa.idMesa = :idMesa " +
         "AND r.fecha = :fecha " +
@@ -106,4 +107,43 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
         @Param("fecha") LocalDate fecha, 
         @Param("horaActual") LocalTime horaActual
     );
+ 
+    @Query("SELECT COUNT(r) FROM Reserva r " +
+           "WHERE r.fecha = :fecha " +
+           "AND r.estadoReserva.nombre = 'PAGADA'")
+    Long countByFecha(@Param("fecha") LocalDate fecha);
+ 
+    @Query("SELECT COUNT(r) FROM Reserva r " +
+           "WHERE r.fecha BETWEEN :inicio AND :fin " +
+           "AND r.estadoReserva.nombre = 'PAGADA'")
+    Long countByFechaBetween(
+            @Param("inicio") LocalDate inicio,
+            @Param("fin")    LocalDate fin);
+ 
+    /**
+     * Cuenta reservas agrupadas por día de la semana entre dos fechas,
+     * excluyendo canceladas.
+     * Retorna: [dayOfWeek (1=Lun..7=Dom), count]
+     */
+    @Query("SELECT DAYOFWEEK(r.fecha), COUNT(r) " +
+           "FROM Reserva r " +
+           "WHERE r.fecha BETWEEN :inicio AND :fin " +
+           "AND r.estadoReserva.nombre = 'PAGADA' " +
+           "GROUP BY DAYOFWEEK(r.fecha) " +
+           "ORDER BY DAYOFWEEK(r.fecha)")
+    List<Object[]> countAgrupadoPorDiaSemana(
+            @Param("inicio") LocalDate inicio,
+            @Param("fin")    LocalDate fin);
+ 
+    /**
+     * Cuenta reservas agrupadas por estado entre dos fechas.
+     * Retorna: [nombreEstado, count]
+     */
+    @Query("SELECT r.estadoReserva.nombre, COUNT(r) " +
+           "FROM Reserva r " +
+           "WHERE r.fecha BETWEEN :inicio AND :fin " +
+           "GROUP BY r.estadoReserva.nombre")
+    List<Object[]> countPorEstadoEnSemana(
+            @Param("inicio") LocalDate inicio,
+            @Param("fin")    LocalDate fin);
 }
