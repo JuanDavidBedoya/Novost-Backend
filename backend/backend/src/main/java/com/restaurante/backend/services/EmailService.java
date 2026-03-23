@@ -1,21 +1,15 @@
 package com.restaurante.backend.services;
 
-import java.io.ByteArrayOutputStream;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
-import org.springframework.core.io.ByteArrayResource;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
-import com.lowagie.text.Document;
-import com.lowagie.text.Font;
-import com.lowagie.text.Paragraph;
-import com.lowagie.text.pdf.PdfWriter;
 import com.restaurante.backend.entities.Pago;
 import com.restaurante.backend.entities.PagoPedido;
 import com.restaurante.backend.entities.Pedido;
@@ -46,24 +40,114 @@ public class EmailService {
         mailSender.send(message);
     }
 
-    // RECORDATORIOS
+    // RECORDATORIOS (HTML)
 
     public void enviarRecordatorio(String email, String nombre, LocalDate fecha, LocalTime hora) {
-        String cuerpo = String.format(
-            "Hola %s,\n\nTe recordamos que tienes una reserva hoy %s a las %s en Novost.\n" +
-            "¡Estamos preparando todo para tu llegada!",
-            nombre, fecha, hora
-        );
-        enviarCorreo(email, "Recordatorio de tu Reserva - Novost", cuerpo);
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setTo(email);
+            helper.setSubject("Recordatorio de tu Reserva - Novost");
+            helper.setText(buildRecordatorioHtml(nombre, fecha, hora), true);
+            mailSender.send(message);
+            System.out.println("Recordatorio enviado a: " + email);
+        } catch (Exception e) {
+            System.err.println("Fallo al enviar recordatorio: " + e.getMessage());
+        }
     }
 
+    private String buildRecordatorioHtml(String nombre, LocalDate fecha, LocalTime hora) {
+        return buildHeader("Recordatorio de Reserva") +
+            "<tr><td style='padding:40px 40px 32px;'>" +
+            // Ícono
+            "<div style='text-align:center;margin-bottom:24px;'>" +
+            "<div style='display:inline-block;background:#f5f3ff;border-radius:50%;" +
+            "width:64px;height:64px;line-height:64px;text-align:center;font-size:32px;'>" +
+            "📅</div></div>" +
+            // Saludo
+            "<p style='margin:0 0 8px;font-size:22px;font-weight:800;color:#1a1a2e;" +
+            "text-align:center;'>Hola, " + nombre + "</p>" +
+            "<p style='margin:0 0 28px;font-size:15px;color:#6b7280;line-height:1.6;" +
+            "text-align:center;'>" +
+            "Te recordamos que tienes una reserva programada para hoy en Novost." +
+            "</p>" +
+            // Info de la reserva
+            "<table width='100%' cellpadding='0' cellspacing='0' style='margin-bottom:24px;'><tr>" +
+            "<td style='background:#f5f3ff;border:1.5px solid #e9d5ff;" +
+            "border-radius:14px;padding:20px 24px;'>" +
+            "<table width='100%' cellpadding='0' cellspacing='0'>" +
+            "<tr>" +
+            "<td style='width:50%;padding-bottom:8px;'>" +
+            "<p style='margin:0 0 3px;font-size:11px;font-weight:700;color:#9ca3af;" +
+            "text-transform:uppercase;letter-spacing:0.8px;'>Fecha</p>" +
+            "<p style='margin:0;font-size:16px;font-weight:700;color:#7E22CE;'>" + fecha.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + "</p></td>" +
+            "<td style='width:50%;padding-bottom:8px;'>" +
+            "<p style='margin:0 0 3px;font-size:11px;font-weight:700;color:#9ca3af;" +
+            "text-transform:uppercase;letter-spacing:0.8px;'>Hora</p>" +
+            "<p style='margin:0;font-size:16px;font-weight:700;color:#1a1a2e;'>" + hora.format(DateTimeFormatter.ofPattern("HH:mm")) + "</p></td>" +
+            "</tr></table>" +
+            "</td></tr></table>" +
+            // Mensaje final
+            "<table width='100%' cellpadding='0' cellspacing='0'><tr>" +
+            "<td style='background:#f0fdf4;border:1.5px solid #bbf7d0;" +
+            "border-radius:12px;padding:16px 20px;'>" +
+            "<p style='margin:0;font-size:14px;color:#16a34a;font-weight:600;line-height:1.6;" +
+            "text-align:center;'>" +
+            "✨ ¡Estamos preparando todo para tu llegada! Te esperamos con los mejores platos." +
+            "</p></td></tr></table>" +
+            "</td></tr>" +
+            FOOTER;
+    }
+
+    // NOTIFICACIÓN DE CANCELACIÓN (HTML)
+
     public void enviarNotificacionCancelacion(String email, String nombre, String motivo) {
-        String cuerpo = String.format(
-            "Hola %s,\n\nTe informamos que tu reserva en Novost ha sido cancelada.\n" +
-            "Motivo: %s\n\nSi tienes dudas, por favor contáctanos.",
-            nombre, motivo
-        );
-        enviarCorreo(email, "Actualización de Reserva - Novost", cuerpo);
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setTo(email);
+            helper.setSubject("Actualización de Reserva - Novost");
+            helper.setText(buildCancelacionHtml(nombre, motivo), true);
+            mailSender.send(message);
+            System.out.println("Notificación de cancelación enviada a: " + email);
+        } catch (Exception e) {
+            System.err.println("Fallo al enviar notificación de cancelación: " + e.getMessage());
+        }
+    }
+
+    private String buildCancelacionHtml(String nombre, String motivo) {
+        return buildHeader("Reserva Cancelada") +
+            "<tr><td style='padding:40px 40px 32px;'>" +
+            // Ícono
+            "<div style='text-align:center;margin-bottom:24px;'>" +
+            "<div style='display:inline-block;background:#fef2f2;border-radius:50%;" +
+            "width:64px;height:64px;line-height:64px;text-align:center;font-size:32px;'>" +
+            "❌</div></div>" +
+            // Saludo
+            "<p style='margin:0 0 8px;font-size:22px;font-weight:800;color:#1a1a2e;" +
+            "text-align:center;'>Hola, " + nombre + "</p>" +
+            "<p style='margin:0 0 28px;font-size:15px;color:#6b7280;line-height:1.6;" +
+            "text-align:center;'>" +
+            "Te informamos que tu reserva en Novost ha sido cancelada." +
+            "</p>" +
+            // Motivo
+            "<table width='100%' cellpadding='0' cellspacing='0' style='margin-bottom:24px;'><tr>" +
+            "<td style='background:#fef2f2;border:1.5px solid #fecaca;" +
+            "border-radius:14px;padding:20px 24px;'>" +
+            "<p style='margin:0 0 4px;font-size:11px;font-weight:700;color:#f87171;" +
+            "text-transform:uppercase;letter-spacing:0.8px;'>Motivo de cancelación</p>" +
+            "<p style='margin:0;font-size:15px;color:#374151;line-height:1.6;'>" + motivo + "</p>" +
+            "</td></tr></table>" +
+            // Mensaje final
+            "<table width='100%' cellpadding='0' cellspacing='0'><tr>" +
+            "<td style='background:#f9fafb;border:1.5px solid #e5e7eb;" +
+            "border-radius:12px;padding:16px 20px;'>" +
+            "<p style='margin:0;font-size:14px;color:#6b7280;font-weight:500;line-height:1.6;" +
+            "text-align:center;'>" +
+            "Si tienes dudas o deseas realizar una nueva reserva, por favor contáctanos." +
+            "</p></td></tr></table>" +
+            "</td></tr>" +
+            FOOTER;
     }
 
     // ── Header HTML compartido ────────────────────────────────────────────────
@@ -358,59 +442,129 @@ public class EmailService {
             FOOTER;
     }
 
-    // ── Factura de RESERVA ────────────────────────────────────────────────────
+    // ── Factura de RESERVA (HTML) ──────────────────────────────────────────────
 
     public void enviarFacturaConPDF(Pago pago) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true);
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
             helper.setTo(pago.getReserva().getUsuario().getEmail());
-            helper.setSubject("Tu Factura de Reserva #" + pago.getReserva().getIdReserva());
-            helper.setText("Hola " + pago.getReserva().getUsuario().getNombre() +
-                           ", adjuntamos el detalle de tu pago.");
-            byte[] pdfBytes = generarPDF(pago);
-            helper.addAttachment("Factura_" + pago.getReserva().getIdReserva() + ".pdf",
-                new ByteArrayResource(pdfBytes));
+            helper.setSubject("Tu Factura de Reserva #" + pago.getReserva().getIdReserva() + " - Novost");
+            helper.setText(buildFacturaReservaHtml(pago), true);
             mailSender.send(message);
-            System.out.println("PDF de reserva enviado con éxito.");
+            System.out.println("Factura de reserva enviada con éxito.");
         } catch (Exception e) {
-            System.err.println("Fallo al enviar PDF de reserva: " + e.getMessage());
+            System.err.println("Fallo al enviar factura de reserva: " + e.getMessage());
         }
     }
 
-    private byte[] generarPDF(Pago pago) throws Exception {
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        Document document = new Document();
-        PdfWriter.getInstance(document, out);
-        document.open();
-
-        Font boldFont   = new Font(Font.HELVETICA, 18, Font.BOLD);
-        Font normalFont = new Font(Font.HELVETICA, 12, Font.NORMAL);
-        Font totalFont  = new Font(Font.HELVETICA, 14, Font.BOLD);
-
-        document.add(new Paragraph("FACTURA DE RESERVA - NOVOST", boldFont));
-        document.add(new Paragraph("ID Transacción: " + pago.getIdPasarela(), normalFont));
-        document.add(new Paragraph("Fecha: " + pago.getFechaPago().format(FORMATO_FECHA), normalFont));
-        document.add(new Paragraph("------------------------------------------------------------------"));
-        document.add(new Paragraph("Cliente: " + pago.getReserva().getUsuario().getNombre(), normalFont));
-        document.add(new Paragraph("Cédula: "  + pago.getReserva().getUsuario().getCedula(), normalFont));
-        document.add(new Paragraph("Mesa: #"   + pago.getReserva().getMesa().getNumeroMesa(), normalFont));
-        document.add(new Paragraph("------------------------------------------------------------------"));
-
-        int    personas      = pago.getReserva().getNumPersonas();
+    private String buildFacturaReservaHtml(Pago pago) {
+        String nombreCliente = pago.getReserva().getUsuario().getNombre();
+        String cedula = pago.getReserva().getUsuario().getCedula();
+        int numeroMesa = pago.getReserva().getMesa().getNumeroMesa();
+        int personas = pago.getReserva().getNumPersonas();
         double precioPersona = 5.0;
-        double total         = pago.getMonto();
+        double total = pago.getMonto();
+        String idTx = pago.getIdPasarela() != null ? pago.getIdPasarela() : "Pago en Caja";
+        String fechaPago = pago.getFechaPago().format(FORMATO_FECHA);
 
-        document.add(new Paragraph("CONCEPTO: Reserva de mesa", normalFont));
-        document.add(new Paragraph("Cantidad de personas: " + personas, normalFont));
-        document.add(new Paragraph("Precio por persona: $ " + precioPersona + " USD", normalFont));
-        document.add(new Paragraph(" "));
-        document.add(new Paragraph("TOTAL PAGADO: $ " + total + " USD", totalFont));
-        document.add(new Paragraph("------------------------------------------------------------------"));
-        document.add(new Paragraph("¡Gracias por elegir Novost! Esperamos verle pronto.", normalFont));
-
-        document.close();
-        return out.toByteArray();
+        return buildHeader("Factura de Reserva") +
+            "<tr><td style='padding:40px 40px 32px;'>" +
+            // Saludo
+            "<p style='margin:0 0 6px;font-size:22px;font-weight:800;color:#1a1a2e;'>" +
+            "¡Gracias, " + nombreCliente + "! 📅</p>" +
+            "<p style='margin:0 0 28px;font-size:15px;color:#6b7280;line-height:1.6;'>" +
+            "Aquí tienes el detalle de tu pago por la reserva en Novost." +
+            "</p>" +
+            // Info del pago
+            "<table width='100%' cellpadding='0' cellspacing='0' style='margin-bottom:24px;'><tr>" +
+            "<td style='background:#f8f9fa;border:1.5px solid #e5e7eb;" +
+            "border-radius:14px;padding:18px 22px;'>" +
+            "<table width='100%' cellpadding='0' cellspacing='0'>" +
+            // Fila 1: Reserva + Mesa
+            "<tr>" +
+            "<td style='width:50%;padding-bottom:12px;'>" +
+            "<p style='margin:0 0 3px;font-size:11px;font-weight:700;color:#9ca3af;" +
+            "text-transform:uppercase;letter-spacing:0.8px;'>Reserva N°</p>" +
+            "<p style='margin:0;font-size:18px;font-weight:900;color:#7E22CE;'>" +
+            "#" + pago.getReserva().getIdReserva() + "</p></td>" +
+            "<td style='width:50%;padding-bottom:12px;'>" +
+            "<p style='margin:0 0 3px;font-size:11px;font-weight:700;color:#9ca3af;" +
+            "text-transform:uppercase;letter-spacing:0.8px;'>Mesa</p>" +
+            "<p style='margin:0;font-size:16px;font-weight:700;color:#1a1a2e;'>#" + numeroMesa + "</p></td>" +
+            "</tr>" +
+            // Fila 2: ID Transacción + Fecha
+            "<tr>" +
+            "<td style='padding-bottom:12px;'>" +
+            "<p style='margin:0 0 3px;font-size:11px;font-weight:700;color:#9ca3af;" +
+            "text-transform:uppercase;letter-spacing:0.8px;'>ID Transacción</p>" +
+            "<p style='margin:0;font-size:14px;font-weight:600;color:#374151;'>" + idTx + "</p></td>" +
+            "<td>" +
+            "<p style='margin:0 0 3px;font-size:11px;font-weight:700;color:#9ca3af;" +
+            "text-transform:uppercase;letter-spacing:0.8px;'>Fecha de pago</p>" +
+            "<p style='margin:0;font-size:14px;font-weight:600;color:#374151;'>" + fechaPago + "</p></td>" +
+            "</tr>" +
+            "</table>" +
+            "</td></tr></table>" +
+            // Info del cliente
+            "<table width='100%' cellpadding='0' cellspacing='0' style='margin-bottom:24px;'><tr>" +
+            "<td style='background:#f9fafb;border:1.5px solid #e5e7eb;" +
+            "border-radius:14px;padding:18px 22px;'>" +
+            "<table width='100%' cellpadding='0' cellspacing='0'>" +
+            "<tr>" +
+            "<td style='width:50%;padding-bottom:8px;'>" +
+            "<p style='margin:0 0 3px;font-size:11px;font-weight:700;color:#9ca3af;" +
+            "text-transform:uppercase;letter-spacing:0.8px;'>Cliente</p>" +
+            "<p style='margin:0;font-size:15px;font-weight:600;color:#1a1a2e;'>" + nombreCliente + "</p></td>" +
+            "<td style='width:50%;padding-bottom:8px;'>" +
+            "<p style='margin:0 0 3px;font-size:11px;font-weight:700;color:#9ca3af;" +
+            "text-transform:uppercase;letter-spacing:0.8px;'>Cédula</p>" +
+            "<p style='margin:0;font-size:15px;font-weight:600;color:#374151;'>" + cedula + "</p></td>" +
+            "</tr>" +
+            "</table>" +
+            "</td></tr></table>" +
+            // Detalle de la factura
+            "<table width='100%' cellpadding='0' cellspacing='0' style='margin-bottom:24px;'><tr>" +
+            "<td style='background:#ffffff;border:1.5px solid #e5e7eb;" +
+            "border-radius:14px;padding:0;overflow:hidden;'>" +
+            "<table width='100%' cellpadding='0' cellspacing='0'>" +
+            "<tr><td style='padding:16px 20px;border-bottom:1px solid #f0f0f5;'>" +
+            "<p style='margin:0;font-size:11px;font-weight:700;color:#9ca3af;" +
+            "text-transform:uppercase;letter-spacing:0.8px;'>Concepto</p>" +
+            "</td></tr>" +
+            "<tr>" +
+            "<td style='padding:14px 20px;font-size:14px;color:#1a1a2e;border-bottom:1px solid #f0f0f5;'>" +
+            "Reserva de mesa</td>" +
+            "</tr>" +
+            "<tr>" +
+            "<td style='padding:14px 20px;font-size:14px;color:#374151;border-bottom:1px solid #f0f0f5;'>" +
+            "Cantidad de personas: <strong>" + personas + "</strong></td>" +
+            "</tr>" +
+            "<tr>" +
+            "<td style='padding:14px 20px;font-size:14px;color:#374151;border-bottom:1px solid #f0f0f5;'>" +
+            "Precio por persona: <strong>$ " + String.format("%.2f", precioPersona) + " USD</strong></td>" +
+            "</tr>" +
+            "<tr>" +
+            "<td style='padding:20px;background:#f5f3ff;'>" +
+            "<table width='100%' cellpadding='0' cellspacing='0'><tr>" +
+            "<td style='font-size:14px;font-weight:600;color:#6b7280;'>TOTAL PAGADO</td>" +
+            "<td style='text-align:right;font-size:22px;font-weight:900;color:#7E22CE;'>" +
+            "$ " + String.format("%.2f", total) + " USD</td>" +
+            "</tr></table>" +
+            "</td>" +
+            "</tr>" +
+            "</table>" +
+            "</td></tr></table>" +
+            // Mensaje final
+            "<table width='100%' cellpadding='0' cellspacing='0'><tr>" +
+            "<td style='background:#f0fdf4;border:1.5px solid #bbf7d0;" +
+            "border-radius:12px;padding:16px 20px;'>" +
+            "<p style='margin:0;font-size:14px;color:#16a34a;font-weight:600;line-height:1.6;" +
+            "text-align:center;'>" +
+            "✨ ¡Gracias por elegir Novost! Esperamos verte pronto." +
+            "</p></td></tr></table>" +
+            "</td></tr>" +
+            FOOTER;
     }
 
     // ── Factura de PEDIDO (HTML) ──────────────────────────────────────────────
