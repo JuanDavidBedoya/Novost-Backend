@@ -2,6 +2,7 @@ package com.restaurante.backend.controllers;
 
 import com.restaurante.backend.dtos.PedidoRequestDTO;
 import com.restaurante.backend.dtos.PedidoResponseDTO;
+import com.restaurante.backend.services.AuditService;
 import com.restaurante.backend.services.PedidoService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -18,11 +19,17 @@ import org.springframework.web.bind.annotation.*;
 public class PedidoController {
 
     private final PedidoService pedidoService;
+    private final AuditService auditService;
 
     @PostMapping
     public ResponseEntity<PedidoResponseDTO> crearPedido(
             @Valid @RequestBody PedidoRequestDTO pedidoRequest) {
         PedidoResponseDTO nuevoPedido = pedidoService.crearPedido(pedidoRequest);
+        
+        // Log de creación
+        auditService.logCreacion(AuditService.ENTIDAD_PEDIDO, nuevoPedido.getIdPedido(), 
+            "Creación de nuevo pedido");
+        
         return ResponseEntity.ok(nuevoPedido);
     }
 
@@ -39,7 +46,13 @@ public class PedidoController {
     public ResponseEntity<List<PedidoResponseDTO>> obtenerTodosLosPedidos(
             @RequestParam(required = false) String fecha,
             @RequestParam(required = false) String estado) {
-        return ResponseEntity.ok(pedidoService.obtenerTodosLosPedidos(fecha, estado));
+        List<PedidoResponseDTO> pedidos = pedidoService.obtenerTodosLosPedidos(fecha, estado);
+        
+        // Log de consulta (admin/trabajador)
+        auditService.logConsulta(AuditService.ENTIDAD_PEDIDO, null, 
+            "Admin/Trabajador consultó todos los pedidos");
+        
+        return ResponseEntity.ok(pedidos);
     }
  
     /**
@@ -51,6 +64,12 @@ public class PedidoController {
     @PatchMapping("/{id}/avanzar-estado")
     @PreAuthorize("hasAnyRole('TRABAJADOR', 'ADMIN')")
     public ResponseEntity<PedidoResponseDTO> avanzarEstado(@PathVariable Long id) {
-        return ResponseEntity.ok(pedidoService.avanzarEstadoPedido(id));
+        PedidoResponseDTO pedido = pedidoService.avanzarEstadoPedido(id);
+        
+        // Log de actualización
+        auditService.logActualizacion(AuditService.ENTIDAD_PEDIDO, id, 
+            "Avance de estado del pedido", null, "nuevo estado: " + pedido.getEstadoPedido());
+        
+        return ResponseEntity.ok(pedido);
     }
 }

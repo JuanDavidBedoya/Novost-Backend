@@ -17,13 +17,15 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.HttpEntity;
-import java.util.Map;
+import org.springframework.http.HttpMethod;
+import org.springframework.core.ParameterizedTypeReference;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Value;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
 
@@ -245,7 +247,11 @@ public class AuthService {
         HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(map, headers);
 
         try {
-            ResponseEntity<Map> response = restTemplate.postForEntity(url, request, Map.class);
+            // Usar exchange para obtener tipos parametrizados correctamente
+            ParameterizedTypeReference<Map<String, Object>> typeRef = 
+                new ParameterizedTypeReference<Map<String, Object>>() {};
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(url, 
+                HttpMethod.POST, request, typeRef);
             Map<String, Object> body = response.getBody();
             
             if (body == null || !(Boolean) body.get("success")) {

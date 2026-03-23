@@ -20,6 +20,7 @@ import com.restaurante.backend.dtos.PagoResponseDTO;
 import com.restaurante.backend.dtos.ReservaConfirmarPagoRequestDTO;
 import com.restaurante.backend.dtos.ReservaRequestDTO;
 import com.restaurante.backend.dtos.ReservaResponseDTO;
+import com.restaurante.backend.services.AuditService;
 import com.restaurante.backend.services.ReservaService;
 import com.restaurante.backend.services.UsuarioService;
 
@@ -32,6 +33,7 @@ public class ReservaController {
 
     private final ReservaService reservaService;
     private final UsuarioService usuarioService;
+    private final AuditService auditService;
 
     @GetMapping("/buscar")
     public ResponseEntity<List<ReservaResponseDTO>> buscar(
@@ -44,7 +46,8 @@ public class ReservaController {
         
         String cedulaUsuarioLogeado = usuarioService.obtenerCedulaPorEmail(emailUsuario);
         
-        return ResponseEntity.ok(reservaService.buscarReservasPorUsuarioConFiltros(cedulaUsuarioLogeado, fecha, hora, personas));
+        List<ReservaResponseDTO> reservas = reservaService.buscarReservasPorUsuarioConFiltros(cedulaUsuarioLogeado, fecha, hora, personas);
+        return ResponseEntity.ok(reservas);
     }
 
     @PostMapping
@@ -55,10 +58,17 @@ public class ReservaController {
         String cedulaUsuarioLogeado = usuarioService.obtenerCedulaPorEmail(emailUsuario);
         
         if (!reservaRequest.getCedulaUsuario().equals(cedulaUsuarioLogeado)) {
+            auditService.registrarError(AuditService.ACCION_CREAR, AuditService.ENTIDAD_RESERVA, null, 
+                "Usuario intentó crear reserva para otra persona", "No puedes crear una reserva para otra persona");
             throw new RuntimeException("No puedes crear una reserva para otra persona");
         }
         
         ReservaResponseDTO nuevaReserva = reservaService.crearReserva(reservaRequest);
+        
+        // Log de creación
+        auditService.logCreacion(AuditService.ENTIDAD_RESERVA, nuevaReserva.getIdReserva(), 
+            "Usuario creó nueva reserva para fecha: " + reservaRequest.getFecha() + " a las " + reservaRequest.getHoraInicio());
+        
         return ResponseEntity.ok(nuevaReserva);
     }
 
@@ -73,6 +83,10 @@ public class ReservaController {
             pagoRequest.getMonto()
         );
         
+        // Log de actualización
+        auditService.logActualizacion(AuditService.ENTIDAD_RESERVA, id, 
+            "Reserva pagada", null, "estado: PAGADO");
+        
         return ResponseEntity.ok(pagoRealizado);
     }
 
@@ -80,12 +94,20 @@ public class ReservaController {
     public ResponseEntity<ReservaResponseDTO> cancelarReserva(@PathVariable Long id) {
         ReservaResponseDTO response = reservaService.cancelarReserva(id);
         
+        // Log de actualización
+        auditService.logActualizacion(AuditService.ENTIDAD_RESERVA, id, 
+            "Reserva cancelada", null, "estado: CANCELADA");
+        
         return ResponseEntity.ok(response);
     }
 
     @PostMapping("/{id}/finalizar")
     public ResponseEntity<ReservaResponseDTO> finalizarReserva(@PathVariable Long id) {
         ReservaResponseDTO response = reservaService.finalizarReserva(id);
+        
+        // Log de actualización
+        auditService.logActualizacion(AuditService.ENTIDAD_RESERVA, id, 
+            "Reserva finalizada", null, "estado: FINALIZADA");
         
         return ResponseEntity.ok(response);
     }
@@ -96,7 +118,8 @@ public class ReservaController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime hora,
             @RequestParam(required = false) Integer personas) {
         
-        return ResponseEntity.ok(reservaService.buscarReservas(fecha, hora, personas));
+        List<ReservaResponseDTO> reservas = reservaService.buscarReservas(fecha, hora, personas);
+        return ResponseEntity.ok(reservas);
     }
 
     @GetMapping("/disponibilidad")

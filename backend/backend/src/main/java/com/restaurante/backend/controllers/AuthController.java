@@ -2,6 +2,7 @@ package com.restaurante.backend.controllers;
 
 import com.restaurante.backend.dtos.*;
 import com.restaurante.backend.repositories.UsuarioRepository;
+import com.restaurante.backend.services.AuditService;
 import com.restaurante.backend.services.AuthService;
 import com.restaurante.backend.services.UsuarioService;
 
@@ -17,21 +18,34 @@ public class AuthController {
 
     private final AuthService authService;
     private final UsuarioRepository usuarioRepository;
+    private final AuditService auditService;
 
-    public AuthController(AuthService authService, UsuarioRepository usuarioRepository) {
+    public AuthController(AuthService authService, UsuarioRepository usuarioRepository, AuditService auditService) {
         this.authService = authService;
         this.usuarioRepository = usuarioRepository;
+        this.auditService = auditService;
     }
 
     @PostMapping("/login")
     public ResponseEntity<String> login(@Valid @RequestBody LoginRequestDTO request) {
         authService.iniciarLogin(request);
+        
+        // Log de intento de login
+        auditService.registrar(AuditService.ACCION_LOGIN, AuditService.ENTIDAD_AUTENTICACION, null, 
+            "Intento de login para email: " + request.email());
+        
         return ResponseEntity.ok("Código de verificación enviado al correo");
     }
 
     @PostMapping("/verificar-login")
     public ResponseEntity<AuthResponseDTO> verifyLogin(@Valid @RequestBody VerifyCodeDTO request) {
-        return ResponseEntity.ok(authService.verificarCodigo(request));
+        AuthResponseDTO response = authService.verificarCodigo(request);
+        
+        // Log de login exitoso
+        auditService.registrar(AuditService.ACCION_LOGIN, AuditService.ENTIDAD_AUTENTICACION, null, 
+            "Login exitoso para email: " + request.email());
+        
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/registrar")
@@ -54,17 +68,33 @@ public class AuthController {
     @PostMapping("/recobrar-password")
     public ResponseEntity<String> recoverPassword(@Valid @RequestBody SolicitarRecuperacionDTO request) {
         authService.solicitarRecuperacionPassword(request.email());
+        
+        // Log de recuperación de contraseña
+        auditService.registrar(AuditService.ACCION_ACTUALIZAR, AuditService.ENTIDAD_AUTENTICACION, null, 
+            "Solicitud de recuperación de contraseña para email: " + request.email());
+        
         return ResponseEntity.ok("Enlace de recuperación enviado");
     }
 
     @PostMapping("/resetear-password")
     public ResponseEntity<String> resetPassword(@Valid @RequestBody RestaurarPasswordDTO request) {
         authService.restaurarPassword(request.token(), request.nuevaContrasenia());
+        
+        // Log de restauración de contraseña
+        auditService.registrar(AuditService.ACCION_ACTUALIZAR, AuditService.ENTIDAD_AUTENTICACION, null, 
+            "Restauración de contraseña completada");
+        
         return ResponseEntity.ok("Contraseña restaurada exitosamente");
     }
 
     @PostMapping("/registrar-trabajador")
     public ResponseEntity<UsuarioResponseDTO> registerTrabajador(@Valid @RequestBody RegistroUsuarioDTO request) {
-        return ResponseEntity.ok(authService.registrarTrabajador(request));
+        UsuarioResponseDTO resultado = authService.registrarTrabajador(request);
+        
+        // Log de registro de trabajador
+        auditService.registrar(AuditService.ACCION_CREAR, AuditService.ENTIDAD_USUARIO, null, 
+            "Registro de nuevo trabajador: " + request.cedula());
+        
+        return ResponseEntity.ok(resultado);
     }
 }

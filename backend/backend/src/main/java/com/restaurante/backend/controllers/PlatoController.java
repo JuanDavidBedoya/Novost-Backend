@@ -12,25 +12,29 @@ import java.util.List;
 @RequiredArgsConstructor
 public class PlatoController {
 
-    private final PlatoService platoService; // 👈 Ahora usa el servicio
+    private final PlatoService platoService;
 
     @GetMapping("/fuertes")
     public List<MenuItemDTO> getFuertes() {
-        return platoService.obtenerPlatosPorCategoria("Fuertes");
+        List<MenuItemDTO> platos = platoService.obtenerPlatosPorCategoria("Fuertes");
+        return platos;
     }
 
     @GetMapping("/bebidas")
     public List<MenuItemDTO> getBebidas() {
-        return platoService.obtenerPlatosPorCategoria("Bebidas");
+        List<MenuItemDTO> platos = platoService.obtenerPlatosPorCategoria("Bebidas");
+        return platos;
     }
 
     @GetMapping("/postres")
     public List<MenuItemDTO> getPostres() {
-        return platoService.obtenerPlatosPorCategoria("Postres");
+        List<MenuItemDTO> platos = platoService.obtenerPlatosPorCategoria("Postres");
+        return platos;
     }
 
     @GetMapping("/entradas")
     public List<MenuItemDTO> getEntradas() {
-        return platoService.obtenerPlatosPorCategoria("Entradas");
+        List<MenuItemDTO> platos = platoService.obtenerPlatosPorCategoria("Entradas");
+        return platos;
     }
 }

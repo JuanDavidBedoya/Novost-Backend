@@ -88,12 +88,13 @@ class AuthServiceTest {
     }
 
     // --- NUEVO: Helper para simular la respuesta de Google ---
+    @SuppressWarnings({"unchecked"})
     private MockedConstruction<RestTemplate> mockearRespuestaGoogle(boolean isSuccess) {
         return mockConstruction(RestTemplate.class, (mock, context) -> {
             Map<String, Object> body = new HashMap<>();
             body.put("success", isSuccess);
-            ResponseEntity<Map> response = new ResponseEntity<>(body, HttpStatus.OK);
-            when(mock.postForEntity(anyString(), any(), eq(Map.class))).thenReturn(response);
+            ResponseEntity<Object> responseObj = new ResponseEntity<>((Object) body, HttpStatus.OK);
+            when(mock.postForEntity(any(), any(), any())).thenReturn(responseObj);
         });
     }
 

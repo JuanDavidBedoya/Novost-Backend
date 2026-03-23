@@ -3,6 +3,7 @@ package com.restaurante.backend.controllers;
 import com.restaurante.backend.dtos.InventarioDashboardDTO;
 import com.restaurante.backend.dtos.InventarioRequestDTO;
 import com.restaurante.backend.dtos.InventarioResponseDTO;
+import com.restaurante.backend.services.AuditService;
 import com.restaurante.backend.services.InventarioService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -20,24 +21,33 @@ import java.util.Map;
 public class InventarioController {
 
     private final InventarioService inventarioService;
+    private final AuditService auditService;
 
     // Obtener todos los productos del inventario
     @GetMapping
     public ResponseEntity<List<InventarioResponseDTO>> obtenerTodos() {
-        return ResponseEntity.ok(inventarioService.obtenerTodos());
+        List<InventarioResponseDTO> inventarios = inventarioService.obtenerTodos();
+        return ResponseEntity.ok(inventarios);
     }
 
     // Obtener producto por ID
     @GetMapping("/{id}")
     public ResponseEntity<InventarioResponseDTO> obtenerPorId(@PathVariable Long id) {
-        return ResponseEntity.ok(inventarioService.obtenerPorId(id));
+        InventarioResponseDTO inventario = inventarioService.obtenerPorId(id);
+        return ResponseEntity.ok(inventario);
     }
 
     // Crear nuevo producto en inventario
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'EMPLEADO')")
     public ResponseEntity<InventarioResponseDTO> crearProducto(@Valid @RequestBody InventarioRequestDTO request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(inventarioService.crearProducto(request));
+        InventarioResponseDTO nuevo = inventarioService.crearProducto(request);
+        
+        // Log de creación
+        auditService.logCreacion(AuditService.ENTIDAD_INVENTARIO, nuevo.getIdAlimento(), 
+            "Creación de producto: " + request.getNombreAlimento());
+        
+        return ResponseEntity.status(HttpStatus.CREATED).body(nuevo);
     }
 
     // Actualizar producto
@@ -46,7 +56,14 @@ public class InventarioController {
     public ResponseEntity<InventarioResponseDTO> actualizarProducto(
             @PathVariable Long id,
             @Valid @RequestBody InventarioRequestDTO request) {
-        return ResponseEntity.ok(inventarioService.actualizarProducto(id, request));
+        InventarioResponseDTO actualizado = inventarioService.actualizarProducto(id, request);
+        
+        // Log de actualización
+        auditService.logActualizacion(AuditService.ENTIDAD_INVENTARIO, id, 
+            "Actualización de producto: " + request.getNombreAlimento(), null, 
+            "nombreAlimento: " + request.getNombreAlimento() + ", stockActual: " + request.getStockActual());
+        
+        return ResponseEntity.ok(actualizado);
     }
 
     // Eliminar producto
@@ -54,6 +71,11 @@ public class InventarioController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> eliminarProducto(@PathVariable Long id) {
         inventarioService.eliminarProducto(id);
+        
+        // Log de eliminación
+        auditService.logEliminacion(AuditService.ENTIDAD_INVENTARIO, id, 
+            "Eliminación de producto del inventario ID: " + id);
+        
         return ResponseEntity.noContent().build();
     }
 
@@ -82,7 +104,13 @@ public class InventarioController {
             @PathVariable Long id,
             @RequestBody Map<String, Double> request) {
         Double cantidad = request.get("cantidad");
-        return ResponseEntity.ok(inventarioService.agregarStock(id, cantidad));
+        InventarioResponseDTO actualizado = inventarioService.agregarStock(id, cantidad);
+        
+        // Log de actualización
+        auditService.logActualizacion(AuditService.ENTIDAD_INVENTARIO, id, 
+            "Agregar stock al producto", null, "cantidad agregada: " + cantidad);
+        
+        return ResponseEntity.ok(actualizado);
     }
 
     // Quitar stock (consumo)
@@ -92,7 +120,13 @@ public class InventarioController {
             @PathVariable Long id,
             @RequestBody Map<String, Double> request) {
         Double cantidad = request.get("cantidad");
-        return ResponseEntity.ok(inventarioService.quitarStock(id, cantidad));
+        InventarioResponseDTO actualizado = inventarioService.quitarStock(id, cantidad);
+        
+        // Log de actualización
+        auditService.logActualizacion(AuditService.ENTIDAD_INVENTARIO, id, 
+            "Quitar stock del producto", null, "cantidad quitada: " + cantidad);
+        
+        return ResponseEntity.ok(actualizado);
     }
 
     // Reiniciar consumo del día (endpoint para cron job)
@@ -100,6 +134,11 @@ public class InventarioController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> reiniciarConsumoDiario() {
         inventarioService.reiniciarConsumoDiario();
+        
+        // Log de acción especial
+        auditService.registrar(AuditService.ACCION_ACTUALIZAR, AuditService.ENTIDAD_INVENTARIO, null, 
+            "Reinicio de consumo diario de inventario");
+        
         return ResponseEntity.ok().build();
     }
 }
