@@ -582,4 +582,136 @@ public class EmailService {
             FOOTER;
     }
 
+    public void enviarConfirmacionBaja(String email, String nombre) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setTo(email);
+            helper.setSubject("Tu cuenta en Novost ha sido desactivada");
+            helper.setText(buildBajaHtml(nombre), true);
+            mailSender.send(message);
+            System.out.println("Correo de baja enviado a: " + email);
+        } catch (Exception e) {
+            System.err.println("Fallo al enviar correo de baja: " + e.getMessage());
+        }
+    }
+ 
+    private String buildBajaHtml(String nombre) {
+        return buildHeader("Confirmación de baja") +
+            "<tr><td style='padding:40px 40px 32px;'>" +
+ 
+            // Ícono despedida
+            "<div style='text-align:center;margin-bottom:24px;'>" +
+            "<div style='display:inline-block;background:#f3f4f6;border-radius:50%;" +
+            "width:64px;height:64px;line-height:64px;text-align:center;font-size:32px;'>" +
+            "👋</div></div>" +
+ 
+            // Saludo
+            "<p style='margin:0 0 8px;font-size:22px;font-weight:800;color:#1a1a2e;" +
+            "text-align:center;'>Hasta pronto, " + nombre + "</p>" +
+            "<p style='margin:0 0 28px;font-size:15px;color:#6b7280;line-height:1.6;" +
+            "text-align:center;'>" +
+            "Tu cuenta en Novost ha sido <strong style='color:#1a1a2e;'>desactivada exitosamente</strong>. " +
+            "A partir de este momento no podrás iniciar sesión en la plataforma." +
+            "</p>" +
+ 
+            // Tarjeta de agradecimiento
+            "<table width='100%' cellpadding='0' cellspacing='0' style='margin-bottom:24px;'><tr>" +
+            "<td style='background:linear-gradient(135deg,#7E22CE 0%,#a855f7 100%);" +
+            "border-radius:16px;padding:24px;text-align:center;'>" +
+            "<p style='margin:0 0 8px;font-size:24px;'>🍽️</p>" +
+            "<p style='margin:0 0 8px;font-size:18px;font-weight:900;color:#ffffff;'>" +
+            "¡Gracias por ser parte de Novost!</p>" +
+            "<p style='margin:0;font-size:14px;color:rgba(255,255,255,0.85);line-height:1.6;'>" +
+            "Fue un placer acompañarte en cada visita y experiencia. " +
+            "Esperamos haber hecho tu estadía memorable." +
+            "</p>" +
+            "</td></tr></table>" +
+ 
+            // Aviso informativo
+            "<table width='100%' cellpadding='0' cellspacing='0'><tr>" +
+            "<td style='background:#f9fafb;border:1.5px solid #e5e7eb;" +
+            "border-radius:12px;padding:14px 18px;'>" +
+            "<p style='margin:0;font-size:13px;color:#6b7280;line-height:1.6;" +
+            "text-align:center;'>" +
+            "Si no solicitaste esta acción o crees que fue un error, " +
+            "por favor contáctanos de inmediato." +
+            "</p></td></tr></table>" +
+ 
+            "</td></tr>" +
+            FOOTER;
+    }
+
+    // ── Bienvenida de vuelta tras reactivación (HTML) ────────────────────────
+ 
+    public void enviarBienvenidaDeVuelta(String email, String nombre) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setTo(email);
+            helper.setSubject("¡Te damos la bienvenida de vuelta a Novost, " + nombre + "!");
+            helper.setText(buildBienvenidaDeVueltaHtml(nombre), true);
+            mailSender.send(message);
+            System.out.println("Correo de bienvenida de vuelta enviado a: " + email);
+        } catch (Exception e) {
+            System.err.println("Fallo al enviar bienvenida de vuelta: " + e.getMessage());
+        }
+    }
+ 
+    private String buildBienvenidaDeVueltaHtml(String nombre) {
+        return buildHeader("¡De vuelta en Novost!") +
+            "<tr><td style='padding:40px 40px 32px;'>" +
+ 
+            // Ícono celebración
+            "<div style='text-align:center;margin-bottom:24px;'>" +
+            "<div style='display:inline-block;background:#f5f3ff;border-radius:50%;" +
+            "width:64px;height:64px;line-height:64px;text-align:center;font-size:32px;'>" +
+            "🎊</div></div>" +
+ 
+            // Saludo
+            "<p style='margin:0 0 8px;font-size:22px;font-weight:800;color:#1a1a2e;" +
+            "text-align:center;'>¡Bienvenido de vuelta, " + nombre + "!</p>" +
+            "<p style='margin:0 0 28px;font-size:15px;color:#6b7280;line-height:1.6;" +
+            "text-align:center;'>" +
+            "Nos alegra mucho tenerte de regreso. Tu cuenta ha sido " +
+            "<strong style='color:#1a1a2e;'>reactivada exitosamente</strong> " +
+            "con tus nuevos datos." +
+            "</p>" +
+ 
+            // Tarjeta morada
+            "<table width='100%' cellpadding='0' cellspacing='0' style='margin-bottom:24px;'><tr>" +
+            "<td style='background:linear-gradient(135deg,#7E22CE 0%,#a855f7 100%);" +
+            "border-radius:16px;padding:24px;text-align:center;'>" +
+            "<p style='margin:0 0 8px;font-size:24px;'>🍽️</p>" +
+            "<p style='margin:0 0 8px;font-size:18px;font-weight:900;color:#ffffff;'>" +
+            "¡Te echamos de menos!</p>" +
+            "<p style='margin:0;font-size:14px;color:rgba(255,255,255,0.85);line-height:1.6;'>" +
+            "Ya puedes volver a hacer reservas, explorar el menú y disfrutar " +
+            "de la mejor experiencia en Novost." +
+            "</p>" +
+            "</td></tr></table>" +
+ 
+            // Tarjetas de características
+            "<table width='100%' cellpadding='0' cellspacing='0'>" +
+            "<tr>" +
+            "<td style='width:50%;padding-right:8px;vertical-align:top;'>" +
+            "<table width='100%' cellpadding='0' cellspacing='0'><tr>" +
+            "<td style='background:#f5f3ff;border-radius:12px;padding:16px;text-align:center;'>" +
+            "<div style='font-size:24px;margin-bottom:6px;'>📅</div>" +
+            "<p style='margin:0;font-size:13px;font-weight:700;color:#7E22CE;'>Reservas</p>" +
+            "<p style='margin:4px 0 0;font-size:12px;color:#6b7280;'>Reserva tu mesa fácilmente</p>" +
+            "</td></tr></table></td>" +
+            "<td style='width:50%;padding-left:8px;vertical-align:top;'>" +
+            "<table width='100%' cellpadding='0' cellspacing='0'><tr>" +
+            "<td style='background:#f0fdf4;border-radius:12px;padding:16px;text-align:center;'>" +
+            "<div style='font-size:24px;margin-bottom:6px;'>🍽️</div>" +
+            "<p style='margin:0;font-size:13px;font-weight:700;color:#16a34a;'>Pedidos</p>" +
+            "<p style='margin:4px 0 0;font-size:12px;color:#6b7280;'>Pide desde la mesa</p>" +
+            "</td></tr></table></td>" +
+            "</tr></table>" +
+ 
+            "</td></tr>" +
+            FOOTER;
+    }
+
 }

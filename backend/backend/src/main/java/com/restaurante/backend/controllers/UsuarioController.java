@@ -2,6 +2,7 @@ package com.restaurante.backend.controllers;
 
 import com.restaurante.backend.dtos.ActualizarPerfilDTO;
 import com.restaurante.backend.dtos.CambiarContrasenaDTO;
+import com.restaurante.backend.dtos.DesactivarCuentaRequestDTO;
 import com.restaurante.backend.dtos.UsuarioResponseDTO;
 import com.restaurante.backend.services.UsuarioService;
 import jakarta.validation.Valid;
@@ -33,5 +34,12 @@ public class UsuarioController {
     public ResponseEntity<String> changePassword(@PathVariable String cedula, @Valid @RequestBody CambiarContrasenaDTO dto) {
         usuarioService.cambiarContrasenia(cedula, dto);
         return ResponseEntity.ok("Contraseña actualizada exitosamente");
+    }
+
+    @PatchMapping("/desactivar")
+    public ResponseEntity<String> desactivarCuenta(
+            @Valid @RequestBody DesactivarCuentaRequestDTO request) {
+        usuarioService.desactivarCuenta(request);
+        return ResponseEntity.ok("Tu cuenta ha sido desactivada permanentemente.");
     }
 }

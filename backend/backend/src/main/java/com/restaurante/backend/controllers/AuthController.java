@@ -1,8 +1,13 @@
 package com.restaurante.backend.controllers;
 
 import com.restaurante.backend.dtos.*;
+import com.restaurante.backend.repositories.UsuarioRepository;
 import com.restaurante.backend.services.AuthService;
+import com.restaurante.backend.services.UsuarioService;
+
 import jakarta.validation.Valid;
+
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -11,9 +16,11 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final UsuarioRepository usuarioRepository;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, UsuarioRepository usuarioRepository) {
         this.authService = authService;
+        this.usuarioRepository = usuarioRepository;
     }
 
     @PostMapping("/login")
@@ -28,8 +35,20 @@ public class AuthController {
     }
 
     @PostMapping("/registrar")
-    public ResponseEntity<UsuarioResponseDTO> register(@Valid @RequestBody RegistroUsuarioDTO request) {
-        return ResponseEntity.ok(authService.registrar(request));
+    public ResponseEntity<UsuarioResponseDTO> register(
+            @Valid @RequestBody RegistroUsuarioDTO request) {
+ 
+        // Verificar antes de registrar si la cédula corresponde a una cuenta desactivada
+        // para poder devolver el status HTTP correcto sin duplicar lógica
+        boolean esReactivacion = usuarioRepository.findById(request.cedula())
+                .map(u -> UsuarioService.CUENTA_DESACTIVADA.equals(u.getTokenRecuperacion()))
+                .orElse(false);
+ 
+        UsuarioResponseDTO resultado = authService.registrar(request);
+ 
+        // 202 ACCEPTED indica al frontend que fue reactivación, no registro nuevo
+        HttpStatus status = esReactivacion ? HttpStatus.ACCEPTED : HttpStatus.OK;
+        return ResponseEntity.status(status).body(resultado);
     }
 
     @PostMapping("/recobrar-password")

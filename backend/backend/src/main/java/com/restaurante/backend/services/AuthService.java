@@ -18,6 +18,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.HttpEntity;
 import java.util.Map;
+import java.util.Optional;
+
 import org.springframework.beans.factory.annotation.Value;
 
 import java.time.LocalDateTime;
@@ -100,16 +102,54 @@ public class AuthService {
     @Transactional
     public UsuarioResponseDTO registrar(RegistroUsuarioDTO request) {
         verificarCaptcha(request.captchaToken());
-        if (usuarioRepository.existsById(request.cedula())) {
+ 
+        // Buscar si ya existe un usuario con esa cédula
+        Optional<Usuario> usuarioExistente = usuarioRepository.findById(request.cedula());
+ 
+        if (usuarioExistente.isPresent()) {
+            Usuario existente = usuarioExistente.get();
+ 
+            // ── Caso: cuenta desactivada → REACTIVAR ──────────────────────────
+            if (UsuarioService.CUENTA_DESACTIVADA.equals(existente.getTokenRecuperacion())) {
+ 
+                // Verificar que el nuevo email no esté en uso por otra cuenta activa
+                usuarioRepository.findByEmail(request.email()).ifPresent(otro -> {
+                    if (!otro.getCedula().equals(existente.getCedula())) {
+                        throw new RuntimeException("email:Email duplicado");
+                    }
+                });
+ 
+                // Actualizar con los nuevos datos del formulario
+                existente.setNombre(request.nombre());
+                existente.setEmail(request.email());
+                existente.setTelefono(request.telefono());
+                existente.setContrasenia(passwordEncoder.encode(request.contrasena()));
+ 
+                // Limpiar todos los marcadores de desactivación
+                existente.setTokenRecuperacion(null);
+                existente.setCodigoVerificacion(null);
+                existente.setExpiracionCodigo(null);
+ 
+                usuarioRepository.save(existente);
+ 
+                // Correo de bienvenida de vuelta
+                emailService.enviarBienvenidaDeVuelta(existente.getEmail(), existente.getNombre());
+ 
+                return usuarioMapper.toUsuarioResponseDTO(existente);
+            }
+ 
+            // ── Caso: cuenta activa → cédula duplicada ────────────────────────
             throw new RuntimeException("cedula:Cédula duplicada");
         }
+ 
+        // ── Caso normal: cédula nueva → registro normal ───────────────────────
         if (usuarioRepository.findByEmail(request.email()).isPresent()) {
             throw new RuntimeException("email:Email duplicado");
         }
-
+ 
         Rol rolUsuario = rolRepository.findById(1L)
                 .orElseThrow(() -> new RuntimeException("general:Rol no encontrado"));
-
+ 
         Usuario nuevoUsuario = new Usuario();
         nuevoUsuario.setCedula(request.cedula());
         nuevoUsuario.setNombre(request.nombre());
@@ -117,11 +157,11 @@ public class AuthService {
         nuevoUsuario.setTelefono(request.telefono());
         nuevoUsuario.setContrasenia(passwordEncoder.encode(request.contrasena()));
         nuevoUsuario.setRol(rolUsuario);
-
+ 
         usuarioRepository.save(nuevoUsuario);
-
+ 
         emailService.enviarBienvenidaUsuario(nuevoUsuario.getEmail(), nuevoUsuario.getNombre());
-
+ 
         return usuarioMapper.toUsuarioResponseDTO(nuevoUsuario);
     }
 
