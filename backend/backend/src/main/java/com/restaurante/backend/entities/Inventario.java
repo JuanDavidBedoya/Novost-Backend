@@ -21,8 +21,12 @@ public class Inventario {
     @Column(name = "nombre_alimento", nullable = false, length = 100)
     private String nombreAlimento;
 
-    @Column(name = "medida", nullable = false, length = 50)
-    private String medida;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tipo_medida", nullable = false, length = 20)
+    private TipoMedida tipoMedida;
+
+    @Column(name = "unidad", nullable = true)
+    private Integer unidad;
 
     @Column(name = "stock_actual", nullable = false)
     private Double stockActual;
@@ -30,6 +34,18 @@ public class Inventario {
     @Column(name = "stock_minimo", nullable = false)
     private Double stockMinimo;
 
+    @Column(name = "consumo_hoy", nullable = false)
+    private Double consumoHoy;
+
+    @Column(name = "ultimo_consumo", nullable = true)
+    private Double ultimoConsumo;
+
     @Column(name = "fecha_actualizacion")
     private LocalDate fechaActualizacion;
+
+    public enum TipoMedida {
+        KILO,
+        LITRO,
+        UNIDAD
+    }
 }
