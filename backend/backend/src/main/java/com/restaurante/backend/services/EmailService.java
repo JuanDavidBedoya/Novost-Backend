@@ -150,6 +150,69 @@ public class EmailService {
             FOOTER;
     }
 
+    // ── Cancelación de RESERVA (HTML) ─────────────────────────────────────────
+
+    public void enviarCancelacionReserva(String email, String nombre, LocalDate fecha, LocalTime hora) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setTo(email);
+            helper.setSubject("Cancelación de Reserva - Novost");
+            helper.setText(buildCancelacionReservaHtml(nombre, fecha, hora), true);
+            mailSender.send(message);
+            System.out.println("Cancelación de reserva enviada a: " + email);
+        } catch (Exception e) {
+            System.err.println("Fallo al enviar cancelación de reserva: " + e.getMessage());
+        }
+    }
+
+    private String buildCancelacionReservaHtml(String nombre, LocalDate fecha, LocalTime hora) {
+        return buildHeader("Reserva Cancelada") +
+            "<tr><td style='padding:40px 40px 32px;'>" +
+            "<div style='text-align:center;margin-bottom:24px;'>" +
+            "<div style='display:inline-block;background:#fef2f2;border-radius:50%;" +
+            "width:64px;height:64px;line-height:64px;text-align:center;font-size:32px;'>" +
+            "❌</div></div>" +
+            "<p style='margin:0 0 8px;font-size:22px;font-weight:800;color:#1a1a2e;" +
+            "text-align:center;'>Hola, " + nombre + "</p>" +
+            "<p style='margin:0 0 28px;font-size:15px;color:#6b7280;line-height:1.6;" +
+            "text-align:center;'>" +
+            "Tu reserva ha sido cancelada. Aquí están los detalles:" +
+            "</p>" +
+            "<table width='100%' cellpadding='0' cellspacing='0' style='margin-bottom:24px;'><tr>" +
+            "<td style='background:#fef2f2;border:1.5px solid #fecaca;" +
+            "border-radius:14px;padding:20px 24px;'>" +
+            "<table width='100%' cellpadding='0' cellspacing='0'>" +
+            "<tr>" +
+            "<td style='width:50%;padding-bottom:12px;'>" +
+            "<p style='margin:0 0 3px;font-size:11px;font-weight:700;color:#f87171;'" +
+            "text-transform:uppercase;letter-spacing:0.8px;'>Fecha</p>" +
+            "<p style='margin:0;font-size:16px;font-weight:700;color:#1a1a2e;'>" + 
+            fecha.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + "</p></td>" +
+            "<td style='width:50%;padding-bottom:12px;'>" +
+            "<p style='margin:0 0 3px;font-size:11px;font-weight:700;color:#f87171;'" +
+            "text-transform:uppercase;letter-spacing:0.8px;'>Hora</p>" +
+            "<p style='margin:0;font-size:16px;font-weight:700;color:#1a1a2e;'>" + 
+            hora.format(DateTimeFormatter.ofPattern("HH:mm")) + "</p></td>" +
+            "</tr></table>" +
+            "</td></tr></table>" +
+            "<table width='100%' cellpadding='0' cellspacing='0' style='margin-bottom:16px;'><tr>" +
+            "<td style='background:#fff8e1;border:1.5px solid #fde68a;" +
+            "border-radius:12px;padding:14px 18px;'>" +
+            "<p style='margin:0;font-size:14px;color:#b45309;font-weight:600;line-height:1.6;'>" +
+            "💳 Si realizaste un pago previo, el reembolso ha sido solicitado a tu entidad bancaria." +
+            "</p></td></tr></table>" +
+            "<table width='100%' cellpadding='0' cellspacing='0'><tr>" +
+            "<td style='background:#f9fafb;border:1.5px solid #e5e7eb;" +
+            "border-radius:12px;padding:16px 20px;'>" +
+            "<p style='margin:0;font-size:14px;color:#6b7280;font-weight:500;line-height:1.6;" +
+            "text-align:center;'>" +
+            "Si deseas realizar una nueva reserva, por favor contáctanos.¡Te esperamos pronto!" +
+            "</p></td></tr></table>" +
+            "</td></tr>" +
+            FOOTER;
+    }
+
     // ── Header HTML compartido ────────────────────────────────────────────────
 
     private String buildHeader(String subtitulo) {
@@ -438,6 +501,82 @@ public class EmailService {
             "🍽️ ¡Bienvenido al equipo Novost! Estamos felices de contarte entre nosotros." +
             "</p></td></tr></table>" +
 
+            "</td></tr>" +
+            FOOTER;
+    }
+
+    // ── Confirmación de RESERVA (HTML) ─────────────────────────────────────────
+
+    public void enviarConfirmacionReserva(String email, String nombre, LocalDate fecha, 
+            LocalTime hora, int personas, double monto) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setTo(email);
+            helper.setSubject("Confirmación de Reserva - Novost");
+            helper.setText(buildConfirmacionReservaHtml(nombre, fecha, hora, personas, monto), true);
+            mailSender.send(message);
+            System.out.println("Confirmación de reserva enviada a: " + email);
+        } catch (Exception e) {
+            System.err.println("Fallo al enviar confirmación de reserva: " + e.getMessage());
+        }
+    }
+
+    private String buildConfirmacionReservaHtml(String nombre, LocalDate fecha, 
+            LocalTime hora, int personas, double monto) {
+        return buildHeader("Reserva Confirmada") +
+            "<tr><td style='padding:40px 40px 32px;'>" +
+            "<div style='text-align:center;margin-bottom:24px;'>" +
+            "<div style='display:inline-block;background:#f0fdf4;border-radius:50%;" +
+            "width:64px;height:64px;line-height:64px;text-align:center;font-size:32px;'>" +
+            "✅</div></div>" +
+            "<p style='margin:0 0 8px;font-size:22px;font-weight:800;color:#1a1a2e;" +
+            "text-align:center;'>Hola, " + nombre + "</p>" +
+            "<p style='margin:0 0 28px;font-size:15px;color:#6b7280;line-height:1.6;" +
+            "text-align:center;'>" +
+            "Tu reserva ha sido registrada exitosamente. Aquí están los detalles:" +
+            "</p>" +
+            "<table width='100%' cellpadding='0' cellspacing='0' style='margin-bottom:24px;'><tr>" +
+            "<td style='background:#f5f3ff;border:1.5px solid #e9d5ff;" +
+            "border-radius:14px;padding:20px 24px;'>" +
+            "<table width='100%' cellpadding='0' cellspacing='0'>" +
+            "<tr>" +
+            "<td style='width:50%;padding-bottom:12px;'>" +
+            "<p style='margin:0 0 3px;font-size:11px;font-weight:700;color:#9ca3af;'" +
+            "text-transform:uppercase;letter-spacing:0.8px;'>Fecha</p>" +
+            "<p style='margin:0;font-size:16px;font-weight:700;color:#7E22CE;'>" + 
+            fecha.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + "</p></td>" +
+            "<td style='width:50%;padding-bottom:12px;'>" +
+            "<p style='margin:0 0 3px;font-size:11px;font-weight:700;color:#9ca3af;'" +
+            "text-transform:uppercase;letter-spacing:0.8px;'>Hora</p>" +
+            "<p style='margin:0;font-size:16px;font-weight:700;color:#1a1a2e;'>" + 
+            hora.format(DateTimeFormatter.ofPattern("HH:mm")) + "</p></td>" +
+            "</tr><tr>" +
+            "<td style='padding-bottom:12px;'>" +
+            "<p style='margin:0 0 3px;font-size:11px;font-weight:700;color:#9ca3af;'" +
+            "text-transform:uppercase;letter-spacing:0.8px;'>Personas</p>" +
+            "<p style='margin:0;font-size:16px;font-weight:700;color:#1a1a2e;'>" + 
+            personas + "</p></td>" +
+            "<td style='padding-bottom:12px;'>" +
+            "<p style='margin:0 0 3px;font-size:11px;font-weight:700;color:#9ca3af;'" +
+            "text-transform:uppercase;letter-spacing:0.8px;'>Monto a pagar</p>" +
+            "<p style='margin:0;font-size:18px;font-weight:900;color:#7E22CE;'>$ " + 
+            String.format("%.2f", monto) + " USD</p></td>" +
+            "</tr></table>" +
+            "</td></tr></table>" +
+            "<table width='100%' cellpadding='0' cellspacing='0' style='margin-bottom:16px;'><tr>" +
+            "<td style='background:#fff8e1;border:1.5px solid #fde68a;" +
+            "border-radius:12px;padding:14px 18px;'>" +
+            "<p style='margin:0;font-size:14px;color:#b45309;font-weight:600;line-height:1.6;'>" +
+            "💳 <strong>Recuerda:</strong> Realiza el pago para confirmar tu asistencia." +
+            "</p></td></tr></table>" +
+            "<table width='100%' cellpadding='0' cellspacing='0'><tr>" +
+            "<td style='background:#f0fdf4;border:1.5px solid #bbf7d0;" +
+            "border-radius:12px;padding:16px 20px;'>" +
+            "<p style='margin:0;font-size:14px;color:#16a34a;font-weight:600;line-height:1.6;" +
+            "text-align:center;'>" +
+            "✨ ¡Te esperamos en Novost! Estamos preparando todo para tu visita." +
+            "</p></td></tr></table>" +
             "</td></tr>" +
             FOOTER;
     }

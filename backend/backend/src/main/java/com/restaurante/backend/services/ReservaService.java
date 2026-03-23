@@ -214,15 +214,12 @@ public class ReservaService {
         reserva.setEstadoReserva(estadoCancelado);
         Reserva guardada = reservaRepo.save(reserva);
 
-        String cuerpoEmail = String.format(
-            "Hola %s, le confirmamos que su reserva para el día %s a las %s ha sido cancelada.\n" +
-            "Si realizó un pago previo, el reembolso ha sido solicitado a su entidad bancaria.",
-            reserva.getUsuario().getNombre(), 
-            reserva.getFecha(), 
+        emailService.enviarCancelacionReserva(
+            reserva.getUsuario().getEmail(),
+            reserva.getUsuario().getNombre(),
+            reserva.getFecha(),
             reserva.getHoraInicio()
         );
-        
-        emailService.enviarCorreo(reserva.getUsuario().getEmail(), "Cancelación de Reserva - Novost", cuerpoEmail);
 
         return reservaMapper.toDto(guardada);
     }
@@ -261,20 +258,13 @@ public class ReservaService {
     }
 
     private void enviarCorreoConfirmacion(Reserva reserva, Double montoTotal) {
-        String cuerpo = String.format(
-            "Hola %s, su reserva ha sido registrada.\n\n" +
-            "Detalles de su reserva:\n" +
-            "- Fecha: %s\n" +
-            "- Hora: %s\n" +
-            "- Personas: %d\n" +
-            "- Valor a pagar: $%s USD\n\n" + 
-            "Recuerde realizar el pago para confirmar su asistencia.",
-            reserva.getUsuario().getNombre(), 
-            reserva.getFecha(), 
+        emailService.enviarConfirmacionReserva(
+            reserva.getUsuario().getEmail(),
+            reserva.getUsuario().getNombre(),
+            reserva.getFecha(),
             reserva.getHoraInicio(),
             reserva.getNumPersonas(),
             montoTotal
         );
-        emailService.enviarCorreo(reserva.getUsuario().getEmail(), "Confirmación de Reserva - Novost", cuerpo);
     }
 }
