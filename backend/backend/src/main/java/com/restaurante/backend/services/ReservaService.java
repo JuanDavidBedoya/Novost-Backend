@@ -227,6 +227,25 @@ public class ReservaService {
         return reservaMapper.toDto(guardada);
     }
 
+    @Transactional
+    public ReservaResponseDTO finalizarReserva(Long idReserva) {
+        Reserva reserva = reservaRepo.findById(idReserva)
+                .orElseThrow(() -> new ResourceNotFoundException("Reserva", idReserva.toString()));
+
+        // Verificar que la reserva esté en estado PAGADA
+        if (!"PAGADA".equals(reserva.getEstadoReserva().getNombre())) {
+            throw new ValidationException("general", "Solo se pueden finalizar reservas que estén en estado PAGADA.");
+        }
+
+        EstadoReserva estadoFinalizada = estadoRepo.findByNombre("FINALIZADA")
+                .orElseThrow(() -> new ResourceNotFoundException("Estado FINALIZADA no configurado en la base de datos"));
+
+        reserva.setEstadoReserva(estadoFinalizada);
+        Reserva guardada = reservaRepo.save(reserva);
+
+        return reservaMapper.toDto(guardada);
+    }
+
     private boolean ejecutarReembolsoStripe(String idPasarela, Double monto) {
         try {
             RefundCreateParams params = RefundCreateParams.builder()

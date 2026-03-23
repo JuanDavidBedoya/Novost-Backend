@@ -83,6 +83,13 @@ public class ReservaController {
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping("/{id}/finalizar")
+    public ResponseEntity<ReservaResponseDTO> finalizarReserva(@PathVariable Long id) {
+        ReservaResponseDTO response = reservaService.finalizarReserva(id);
+        
+        return ResponseEntity.ok(response);
+    }
+
     @GetMapping("/todas")
     public ResponseEntity<List<ReservaResponseDTO>> buscarTodasLasReservas(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha,
