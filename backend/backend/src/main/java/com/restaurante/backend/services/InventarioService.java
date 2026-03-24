@@ -28,8 +28,6 @@ public class InventarioService {
     // Crear nuevo producto en inventario
     @Transactional
     public InventarioResponseDTO crearProducto(InventarioRequestDTO request) {
-        validarRequest(request);
-
         Inventario inventario = inventarioMapper.toEntity(request);
         Inventario saved = inventarioRepository.save(inventario);
 
@@ -46,8 +44,6 @@ public class InventarioService {
     public InventarioResponseDTO actualizarProducto(Long id, InventarioRequestDTO request) {
         Inventario inventario = inventarioRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Producto no encontrado con ID: " + id));
-
-        validarRequest(request);
 
         inventarioMapper.updateEntity(inventario, request);
 
@@ -212,18 +208,11 @@ public class InventarioService {
             case LITRO:
                 return "L";
             case UNIDAD:
-                return "und (" + inventario.getUnidad() + ")";
+                return "und";
             default:
                 return "";
         }
     }
 
-    private void validarRequest(InventarioRequestDTO request) {
-        if (request.getTipoMedida() == TipoMedida.UNIDAD && (request.getUnidad() == null || request.getUnidad() < 1)) {
-            throw new ValidationException("Para tipo UNIDAD, debe especificar una unidad válida (1, 2, 3, etc.)");
-        }
-        if (request.getTipoMedida() != TipoMedida.UNIDAD && request.getUnidad() != null) {
-            throw new ValidationException("La unidad solo aplica para tipo UNIDAD");
-        }
-    }
+
 }

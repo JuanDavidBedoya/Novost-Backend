@@ -14,7 +14,6 @@ public class InventarioResponseDTO {
     private Long idAlimento;
     private String nombreAlimento;
     private TipoMedida tipoMedida;
-    private Integer unidad;
     private Double stockActual;
     private Double stockMinimo;
     private Double consumoHoy;

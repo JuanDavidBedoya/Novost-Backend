@@ -25,9 +25,6 @@ public class Inventario {
     @Column(name = "tipo_medida", nullable = false, length = 20)
     private TipoMedida tipoMedida;
 
-    @Column(name = "unidad", nullable = true)
-    private Integer unidad;
-
     @Column(name = "stock_actual", nullable = false)
     private Double stockActual;
 

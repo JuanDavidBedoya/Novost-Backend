@@ -16,7 +16,6 @@ public class InventarioMapper {
         dto.setIdAlimento(inventario.getIdAlimento());
         dto.setNombreAlimento(inventario.getNombreAlimento());
         dto.setTipoMedida(inventario.getTipoMedida());
-        dto.setUnidad(inventario.getUnidad());
         dto.setStockActual(inventario.getStockActual());
         dto.setStockMinimo(inventario.getStockMinimo());
         dto.setConsumoHoy(inventario.getConsumoHoy());
@@ -31,7 +30,6 @@ public class InventarioMapper {
         Inventario inventario = new Inventario();
         inventario.setNombreAlimento(request.getNombreAlimento());
         inventario.setTipoMedida(request.getTipoMedida());
-        inventario.setUnidad(request.getUnidad());
         inventario.setStockActual(request.getStockActual());
         inventario.setStockMinimo(request.getStockMinimo());
         inventario.setConsumoHoy(0.0);
@@ -44,7 +42,6 @@ public class InventarioMapper {
     public void updateEntity(Inventario inventario, InventarioRequestDTO request) {
         inventario.setNombreAlimento(request.getNombreAlimento());
         inventario.setTipoMedida(request.getTipoMedida());
-        inventario.setUnidad(request.getUnidad());
         inventario.setStockActual(request.getStockActual());
         inventario.setStockMinimo(request.getStockMinimo());
         inventario.setFechaActualizacion(LocalDate.now());
