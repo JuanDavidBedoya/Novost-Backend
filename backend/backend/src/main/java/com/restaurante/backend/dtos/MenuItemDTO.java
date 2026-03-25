@@ -8,11 +8,11 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class MenuItemDTO {
-    
+
     private Long idPlato;
     private String nombrePlato;
     private String descripcion;
     private Double precioPlato;
     private Boolean disponible;
-    
+    private String imagenUrl; 
 }

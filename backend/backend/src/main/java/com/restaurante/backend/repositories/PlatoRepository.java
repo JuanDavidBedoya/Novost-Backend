@@ -9,5 +9,5 @@ import java.util.List;
 public interface PlatoRepository extends JpaRepository<Plato, Long> {
     List<Plato> findByCategoriaNombreCategoriaAndEstado(String nombreCategoria, boolean estado);
 
-     List<Plato> findByCategoriaNombreCategoria(String nombreCategoria);
+    List<Plato> findByCategoriaNombreCategoria(String nombreCategoria);
 }

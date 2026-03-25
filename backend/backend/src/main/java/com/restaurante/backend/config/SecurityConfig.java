@@ -44,6 +44,7 @@ public class SecurityConfig {
                     "/pagos/crear-intento",
                     "/pagos/confirmar",
                     "/webhooks/stripe"
+                    
                 ).permitAll()
                 .anyRequest().authenticated()   
             )
