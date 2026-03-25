@@ -4,16 +4,16 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class MenuItemDTO {
-
-    private Long idPlato;
+public class CrearPlatoRequestDTO {
     private String nombrePlato;
     private String descripcion;
     private Double precioPlato;
-    private Boolean disponible;
-    private String imagenUrl; 
-    
+    private Long idCategoria;
+    private String imagenUrl;
+    private List<IngredienteDetalleDTO> ingredientes;
 }

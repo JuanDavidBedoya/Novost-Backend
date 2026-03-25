@@ -1,12 +1,8 @@
 package com.restaurante.backend.services;
 
-import com.restaurante.backend.dtos.MenuItemDTO;
-import com.restaurante.backend.entities.Plato;
-import com.restaurante.backend.entities.PlatoDetalle;
-import com.restaurante.backend.entities.PlatoImagen;
-import com.restaurante.backend.repositories.PlatoDetalleRepository;
-import com.restaurante.backend.repositories.PlatoImagenRepository;
-import com.restaurante.backend.repositories.PlatoRepository;
+import com.restaurante.backend.dtos.*;
+import com.restaurante.backend.entities.*;
+import com.restaurante.backend.repositories.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,30 +15,126 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class PlatoService {
 
-    private final PlatoRepository platoRepository;
-    private final PlatoDetalleRepository platoDetalleRepository;
-    private final PlatoImagenRepository platoImagenRepository; // ✅ Nuevo
+    private final PlatoRepository           platoRepository;
+    private final PlatoDetalleRepository    platoDetalleRepository;
+    private final PlatoImagenRepository     platoImagenRepository;
+    private final PlatoConfigRepository     platoConfigRepository;
+    private final CategoriaRepository       categoriaRepository;
+    private final InventarioRepository      inventarioRepository;
 
     // ──────────────────────────────────────────────────────────────
-    //  GUARDAR URL DE IMAGEN
+    //  CREAR PLATO
     // ──────────────────────────────────────────────────────────────
     @Transactional
-    public String guardarImagenUrl(Long idPlato, String imagenUrl) {
-        Plato plato = platoRepository.findById(idPlato)
-                .orElseThrow(() -> new RuntimeException("Plato no encontrado con id: " + idPlato));
+    public void crearPlato(CrearPlatoRequestDTO dto) {
+        // 1. Buscar categoría
+        Categoria categoria = categoriaRepository.findById(dto.getIdCategoria())
+                .orElseThrow(() -> new RuntimeException("Categoría no encontrada"));
 
-        PlatoImagen platoImagen = platoImagenRepository
-                .findByPlato(plato)
-                .orElse(new PlatoImagen());
-        platoImagen.setPlato(plato);
-        platoImagen.setImagenUrl(imagenUrl);
-        platoImagenRepository.save(platoImagen);
+        // 2. Crear y guardar el Plato (estado true por defecto, se recalcula al listar)
+        Plato plato = new Plato();
+        plato.setNombrePlato(dto.getNombrePlato());
+        plato.setDescripcion(dto.getDescripcion());
+        plato.setPrecioPlato(dto.getPrecioPlato());
+        plato.setCategoria(categoria);
+        plato.setEstado(true);
+        platoRepository.save(plato);
 
-        return imagenUrl;
+        // 3. Crear PlatoConfig (habilitado por defecto)
+        PlatoConfig config = new PlatoConfig();
+        config.setPlato(plato);
+        config.setHabilitadoAdmin(true);
+        platoConfigRepository.save(config);
+
+        // 4. Guardar imagen
+        if (dto.getImagenUrl() != null && !dto.getImagenUrl().isBlank()) {
+            PlatoImagen imagen = new PlatoImagen();
+            imagen.setPlato(plato);
+            imagen.setImagenUrl(dto.getImagenUrl());
+            platoImagenRepository.save(imagen);
+        }
+
+        // 5. Guardar ingredientes (plato_detalle)
+        if (dto.getIngredientes() != null) {
+            for (IngredienteDetalleDTO ing : dto.getIngredientes()) {
+                Inventario inventario = inventarioRepository.findById(ing.getIdAlimento())
+                        .orElseThrow(() -> new RuntimeException(
+                                "Ingrediente no encontrado con id: " + ing.getIdAlimento()));
+                PlatoDetalle detalle = new PlatoDetalle();
+                detalle.setPlato(plato);
+                detalle.setInventario(inventario);
+                detalle.setCantidadNecesaria(ing.getCantidadNecesaria());
+                platoDetalleRepository.save(detalle);
+            }
+        }
     }
 
     // ──────────────────────────────────────────────────────────────
-    //  OBTENER PLATOS POR CATEGORÍA (incluye imagenUrl)
+    //  TOGGLE HABILITADO ADMIN
+    // ──────────────────────────────────────────────────────────────
+    @Transactional
+    public boolean toggleHabilitadoAdmin(Long idPlato) {
+        Plato plato = platoRepository.findById(idPlato)
+                .orElseThrow(() -> new RuntimeException("Plato no encontrado"));
+
+        PlatoConfig config = platoConfigRepository.findByPlato(plato)
+                .orElseGet(() -> {
+                    PlatoConfig c = new PlatoConfig();
+                    c.setPlato(plato);
+                    c.setHabilitadoAdmin(true);
+                    return c;
+                });
+
+        config.setHabilitadoAdmin(!config.getHabilitadoAdmin());
+        platoConfigRepository.save(config);
+        return config.getHabilitadoAdmin();
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    //  BUSCAR INGREDIENTES
+    // ──────────────────────────────────────────────────────────────
+    public List<InventarioItemDTO> buscarIngredientes(String query) {
+        return inventarioRepository
+                .findByNombreAlimentoContainingIgnoreCase(query)
+                .stream()
+                .map(inv -> new InventarioItemDTO(
+                        inv.getIdAlimento(),
+                        inv.getNombreAlimento(),
+                        inv.getTipoMedida().name()))
+                .collect(Collectors.toList());
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    //  OBTENER TODOS LOS PLATOS (panel admin)
+    // ──────────────────────────────────────────────────────────────
+    @Transactional
+    public List<PlatoAdminDTO> obtenerTodosLosPlatos() {
+        return platoRepository.findAll().stream()
+                .map(plato -> {
+                    boolean habilitadoAdmin = platoConfigRepository.findByPlato(plato)
+                            .map(PlatoConfig::getHabilitadoAdmin)
+                            .orElse(true);
+
+                    String imagenUrl = platoImagenRepository.findByPlato(plato)
+                            .map(PlatoImagen::getImagenUrl)
+                            .orElse(null);
+
+                    return new PlatoAdminDTO(
+                            plato.getIdPlato(),
+                            plato.getNombrePlato(),
+                            plato.getDescripcion(),
+                            plato.getPrecioPlato(),
+                            plato.getCategoria().getNombreCategoria(),
+                            imagenUrl,
+                            plato.getEstado(),
+                            habilitadoAdmin
+                    );
+                })
+                .collect(Collectors.toList());
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    //  OBTENER PLATOS POR CATEGORÍA — ahora combina stock + admin
     // ──────────────────────────────────────────────────────────────
     @Transactional
     public List<MenuItemDTO> obtenerPlatosPorCategoria(String categoria) {
@@ -58,6 +150,13 @@ public class PlatoService {
 
         return platos.stream()
                 .map(plato -> {
+                    boolean habilitadoAdmin = platoConfigRepository.findByPlato(plato)
+                            .map(PlatoConfig::getHabilitadoAdmin)
+                            .orElse(true);
+
+                    // ✅ disponible = true solo si hay stock Y el admin lo habilitó
+                    boolean disponibleFinal = plato.getEstado() && habilitadoAdmin;
+
                     String imagenUrl = platoImagenRepository.findByPlato(plato)
                             .map(PlatoImagen::getImagenUrl)
                             .orElse(null);
@@ -67,8 +166,8 @@ public class PlatoService {
                             plato.getNombrePlato(),
                             plato.getDescripcion(),
                             plato.getPrecioPlato(),
-                            plato.getEstado(),
-                            imagenUrl // ✅
+                            disponibleFinal,
+                            imagenUrl
                     );
                 })
                 .collect(Collectors.toList());
@@ -109,5 +208,22 @@ public class PlatoService {
                 platoRepository.save(plato);
             }
         }
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    //  GUARDAR URL DE IMAGEN (método existente sin cambios)
+    // ──────────────────────────────────────────────────────────────
+    @Transactional
+    public String guardarImagenUrl(Long idPlato, String imagenUrl) {
+        Plato plato = platoRepository.findById(idPlato)
+                .orElseThrow(() -> new RuntimeException("Plato no encontrado con id: " + idPlato));
+
+        PlatoImagen platoImagen = platoImagenRepository
+                .findByPlato(plato)
+                .orElse(new PlatoImagen());
+        platoImagen.setPlato(plato);
+        platoImagen.setImagenUrl(imagenUrl);
+        platoImagenRepository.save(platoImagen);
+        return imagenUrl;
     }
 }

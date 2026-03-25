@@ -1,6 +1,8 @@
 package com.restaurante.backend.controllers;
 
-import com.restaurante.backend.dtos.MenuItemDTO;
+import com.restaurante.backend.dtos.*;
+import com.restaurante.backend.entities.Categoria;
+import com.restaurante.backend.repositories.CategoriaRepository;
 import com.restaurante.backend.services.PlatoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -15,30 +17,71 @@ import java.util.Map;
 public class PlatoController {
 
     private final PlatoService platoService;
+    private final CategoriaRepository categoriaRepository;
 
+    // ── Endpoints existentes ────────────────────────────────────────
     @GetMapping("/fuertes")
-    public List<MenuItemDTO> getFuertes() { return platoService.obtenerPlatosPorCategoria("Fuertes"); }
+    public List<MenuItemDTO> getFuertes()  { return platoService.obtenerPlatosPorCategoria("Fuertes"); }
 
     @GetMapping("/bebidas")
-    public List<MenuItemDTO> getBebidas() { return platoService.obtenerPlatosPorCategoria("Bebidas"); }
+    public List<MenuItemDTO> getBebidas()  { return platoService.obtenerPlatosPorCategoria("Bebidas"); }
 
     @GetMapping("/postres")
-    public List<MenuItemDTO> getPostres() { return platoService.obtenerPlatosPorCategoria("Postres"); }
+    public List<MenuItemDTO> getPostres()  { return platoService.obtenerPlatosPorCategoria("Postres"); }
 
     @GetMapping("/entradas")
     public List<MenuItemDTO> getEntradas() { return platoService.obtenerPlatosPorCategoria("Entradas"); }
 
-    // Endpoint para guardar URL de imagen de un plato
     @PostMapping("/{idPlato}/imagen")
     public ResponseEntity<Map<String, String>> guardarImagenUrl(
             @PathVariable Long idPlato,
             @RequestParam("imagenUrl") String imagenUrl) {
         try {
-            String url = platoService.guardarImagenUrl(idPlato, imagenUrl);
-            return ResponseEntity.ok(Map.of("imagenUrl", url));
+            return ResponseEntity.ok(Map.of("imagenUrl", platoService.guardarImagenUrl(idPlato, imagenUrl)));
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest()
-                    .body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // ── Nuevos endpoints ────────────────────────────────────────────
+
+    // GET /platos/categorias → lista todas las categorías
+    @GetMapping("/categorias")
+    public List<Categoria> getCategorias() {
+        return categoriaRepository.findAll();
+    }
+
+    // GET /platos/ingredientes?q=query → busca ingredientes por nombre
+    @GetMapping("/ingredientes")
+    public List<InventarioItemDTO> buscarIngredientes(@RequestParam String q) {
+        return platoService.buscarIngredientes(q);
+    }
+
+    // GET /platos/admin/todos → todos los platos para el panel admin
+    @GetMapping("/admin/todos")
+    public List<PlatoAdminDTO> getTodosAdmin() {
+        return platoService.obtenerTodosLosPlatos();
+    }
+
+    // POST /platos → crear nuevo plato
+    @PostMapping
+    public ResponseEntity<Map<String, String>> crearPlato(@RequestBody CrearPlatoRequestDTO dto) {
+        try {
+            platoService.crearPlato(dto);
+            return ResponseEntity.ok(Map.of("mensaje", "Plato creado exitosamente"));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // PUT /platos/{id}/habilitar → toggle habilitado/deshabilitado
+    @PutMapping("/{idPlato}/habilitar")
+    public ResponseEntity<Map<String, Object>> toggleHabilitar(@PathVariable Long idPlato) {
+        try {
+            boolean nuevoEstado = platoService.toggleHabilitadoAdmin(idPlato);
+            return ResponseEntity.ok(Map.of("habilitadoAdmin", nuevoEstado));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 }

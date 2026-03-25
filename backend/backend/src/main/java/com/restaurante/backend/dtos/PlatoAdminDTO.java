@@ -7,13 +7,13 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class MenuItemDTO {
-
+public class PlatoAdminDTO {
     private Long idPlato;
     private String nombrePlato;
     private String descripcion;
     private Double precioPlato;
-    private Boolean disponible;
-    private String imagenUrl; 
-    
+    private String categoriaNombre;
+    private String imagenUrl;
+    private Boolean disponibleStock;   // calculado por stock
+    private Boolean habilitadoAdmin;   // controlado por el admin
 }
