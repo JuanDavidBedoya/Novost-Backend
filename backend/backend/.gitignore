@@ -31,3 +31,6 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# Ignorar archivos específicos de desarrollo/producción (buenas prácticas)
+backend/backend/src/main/resources/application.properties
