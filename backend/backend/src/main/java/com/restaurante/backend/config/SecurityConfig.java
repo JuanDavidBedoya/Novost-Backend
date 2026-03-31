@@ -43,8 +43,9 @@ public class SecurityConfig {
                     "/auth/resetear-password",
                     "/pagos/crear-intento",
                     "/pagos/confirmar",
-                    "/webhooks/stripe"
-                    
+                    "/webhooks/stripe",
+                    "/actuator/**",         
+                    "/metricas/**"      
                 ).permitAll()
                 .anyRequest().authenticated()   
             )

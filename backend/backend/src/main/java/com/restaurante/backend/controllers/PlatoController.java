@@ -4,10 +4,13 @@ import com.restaurante.backend.dtos.*;
 import com.restaurante.backend.entities.Categoria;
 import com.restaurante.backend.repositories.CategoriaRepository;
 import com.restaurante.backend.services.PlatoService;
+
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
@@ -42,8 +45,6 @@ public class PlatoController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
-
-    // ── Nuevos endpoints ────────────────────────────────────────────
 
     // GET /platos/categorias → lista todas las categorías
     @GetMapping("/categorias")
@@ -84,4 +85,15 @@ public class PlatoController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
+
+    @GetMapping("/{idPlato}/ultimo-cambio")
+        public ResponseEntity<Map<String, Object>> getUltimoCambio(@PathVariable Long idPlato) {
+            Instant ts = platoService.getUltimoToggleTimestamp(idPlato);
+            if (ts == null) return ResponseEntity.notFound().build();
+            return ResponseEntity.ok(Map.of(
+                "idPlato", idPlato,
+                "timestampMs", ts.toEpochMilli()
+            ));
+        }
+
 }

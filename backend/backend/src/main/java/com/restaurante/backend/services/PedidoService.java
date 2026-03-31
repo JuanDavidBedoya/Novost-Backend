@@ -38,100 +38,117 @@ public class PedidoService {
     private final PagoPedidoRepository pagoPedidoRepo;
     private final EmailService emailService;
     private final UsuarioRepository usuarioRepo;
+    private final PedidoMetricaService pedidoMetricaService;
 
     private static final Double IMPUESTO_IVA = 0.19;
 
     @Transactional
-    public PedidoResponseDTO crearPedido(PedidoRequestDTO dto) {
-        LocalDate fechaActual = LocalDate.now();
-        LocalTime horaActual = LocalTime.now();
+public PedidoResponseDTO crearPedido(PedidoRequestDTO dto) {
 
-        Mesa mesa = mesaRepo.findById(dto.getIdMesa())
-                .orElseThrow(() -> new ResourceNotFoundException("Mesa", dto.getIdMesa().toString()));
+    // ✅ Registra el intento antes de cualquier lógica
+    pedidoMetricaService.registrarIntento();
 
-        Optional<Reserva> reservaActiva = reservaRepo.findReservaActivaPorMesaYHora(
-                mesa.getIdMesa(), fechaActual, horaActual);
+    // ✅ Envuelve toda la lógica en el timer para medir duración
+    return pedidoMetricaService.getTiempoTimer().record(() -> {
+        try {
+            LocalDate fechaActual = LocalDate.now();
+            LocalTime horaActual  = LocalTime.now();
 
-        String emailLogueado = SecurityContextHolder.getContext().getAuthentication().getName();
-        Usuario usuarioLogueado = usuarioRepo.findByEmail(emailLogueado)
-                .orElseThrow(() -> new ResourceNotFoundException("Usuario", emailLogueado));
+            Mesa mesa = mesaRepo.findById(dto.getIdMesa())
+                    .orElseThrow(() -> new ResourceNotFoundException("Mesa", dto.getIdMesa().toString()));
 
-        Pedido pedido = new Pedido();
-        pedido.setMesa(mesa);
-        pedido.setReserva(reservaActiva.orElse(null));
-        pedido.setUsuario(usuarioLogueado);
-        pedido.setFechaPedido(fechaActual);
-        pedido.setHoraPedido(horaActual);
-        pedido.setObservaciones(dto.getObservaciones());
+            Optional<Reserva> reservaActiva = reservaRepo.findReservaActivaPorMesaYHora(
+                    mesa.getIdMesa(), fechaActual, horaActual);
 
-        EstadoPedido estadoInicial = estadoPedidoRepo.findByNombre("RECIBIDO")
-                .orElseThrow(() -> new ResourceNotFoundException("Estado de pedido RECIBIDO no configurado"));
-        pedido.setEstadoPedido(estadoInicial);
+            String emailLogueado = SecurityContextHolder.getContext().getAuthentication().getName();
+            Usuario usuarioLogueado = usuarioRepo.findByEmail(emailLogueado)
+                    .orElseThrow(() -> new ResourceNotFoundException("Usuario", emailLogueado));
 
-        double subtotalAcumulado = 0.0;
-        List<PedidoDetalle> detallesAGuardar = new ArrayList<>();
+            Pedido pedido = new Pedido();
+            pedido.setMesa(mesa);
+            pedido.setReserva(reservaActiva.orElse(null));
+            pedido.setUsuario(usuarioLogueado);
+            pedido.setFechaPedido(fechaActual);
+            pedido.setHoraPedido(horaActual);
+            pedido.setObservaciones(dto.getObservaciones());
 
-        for (PedidoDetalleRequestDTO detalleDto : dto.getDetalles()) {
-            Plato plato = platoRepo.findById(detalleDto.getIdPlato())
-                    .orElseThrow(() -> new ResourceNotFoundException("Plato", detalleDto.getIdPlato().toString()));
+            EstadoPedido estadoInicial = estadoPedidoRepo.findByNombre("RECIBIDO")
+                    .orElseThrow(() -> new ResourceNotFoundException("Estado de pedido RECIBIDO no configurado"));
+            pedido.setEstadoPedido(estadoInicial);
 
-            if (Boolean.FALSE.equals(plato.getEstado())) {
-                throw new ValidationException("plato",
-                        "El plato '" + plato.getNombrePlato() + "' no está disponible actualmente.");
-            }
+            double subtotalAcumulado = 0.0;
+            List<PedidoDetalle> detallesAGuardar = new ArrayList<>();
 
-            List<PlatoDetalle> receta = platoDetalleRepo.findByPlato(plato);
-            for (PlatoDetalle ingrediente : receta) {
-                Inventario itemInventario = ingrediente.getInventario();
-                double cantidadRequerida = ingrediente.getCantidadNecesaria() * detalleDto.getCantidad();
+            for (PedidoDetalleRequestDTO detalleDto : dto.getDetalles()) {
+                Plato plato = platoRepo.findById(detalleDto.getIdPlato())
+                        .orElseThrow(() -> new ResourceNotFoundException("Plato", detalleDto.getIdPlato().toString()));
 
-                if (itemInventario.getStockActual() < cantidadRequerida) {
-                    throw new ValidationException("inventario",
-                            "Stock insuficiente para preparar '" + plato.getNombrePlato() +
-                            "'. Faltan ingredientes (" + itemInventario.getNombreAlimento() + ").");
+                if (Boolean.FALSE.equals(plato.getEstado())) {
+                    throw new ValidationException("plato",
+                            "El plato '" + plato.getNombrePlato() + "' no está disponible actualmente.");
                 }
 
-                itemInventario.setStockActual(itemInventario.getStockActual() - cantidadRequerida);
-                itemInventario.setFechaActualizacion(LocalDate.now());
-                inventarioRepo.save(itemInventario);
+                List<PlatoDetalle> receta = platoDetalleRepo.findByPlato(plato);
+                for (PlatoDetalle ingrediente : receta) {
+                    Inventario itemInventario = ingrediente.getInventario();
+                    double cantidadRequerida = ingrediente.getCantidadNecesaria() * detalleDto.getCantidad();
+
+                    if (itemInventario.getStockActual() < cantidadRequerida) {
+                        throw new ValidationException("inventario",
+                                "Stock insuficiente para preparar '" + plato.getNombrePlato() +
+                                "'. Faltan ingredientes (" + itemInventario.getNombreAlimento() + ").");
+                    }
+
+                    itemInventario.setStockActual(itemInventario.getStockActual() - cantidadRequerida);
+                    itemInventario.setFechaActualizacion(LocalDate.now());
+                    inventarioRepo.save(itemInventario);
+                }
+
+                double subtotalLinea = plato.getPrecioPlato() * detalleDto.getCantidad();
+                subtotalAcumulado += subtotalLinea;
+
+                PedidoDetalle pd = new PedidoDetalle();
+                pd.setPedido(pedido);
+                pd.setPlato(plato);
+                pd.setCantidad(detalleDto.getCantidad());
+                pd.setPrecioUnitario(plato.getPrecioPlato());
+                pd.setSubtotal(subtotalLinea);
+                detallesAGuardar.add(pd);
             }
 
-            double subtotalLinea = plato.getPrecioPlato() * detalleDto.getCantidad();
-            subtotalAcumulado += subtotalLinea;
+            pedido.setSubtotal(subtotalAcumulado);
+            pedido.setTotal(subtotalAcumulado + (subtotalAcumulado * IMPUESTO_IVA));
 
-            PedidoDetalle pd = new PedidoDetalle();
-            pd.setPedido(pedido);
-            pd.setPlato(plato);
-            pd.setCantidad(detalleDto.getCantidad());
-            pd.setPrecioUnitario(plato.getPrecioPlato());
-            pd.setSubtotal(subtotalLinea);
-            detallesAGuardar.add(pd);
+            Pedido pedidoGuardado = pedidoRepo.save(pedido);
+            pedidoDetalleRepo.saveAll(detallesAGuardar);
+
+            platoService.recalcularDisponibilidadPorIngredientesAfectados(
+                    dto.getDetalles().stream()
+                            .map(d -> platoRepo.findById(d.getIdPlato()).orElseThrow())
+                            .collect(Collectors.toList())
+            );
+
+            PagoPedido pagoPedido = new PagoPedido();
+            pagoPedido.setPedido(pedidoGuardado);
+            pagoPedido.setMetodoPago(dto.getMetodoPago());
+            pagoPedido.setMonto(pedidoGuardado.getTotal());
+            pagoPedido.setFechaPago(LocalDateTime.now());
+            pagoPedido.setIdPasarela(null);
+            pagoPedido.setEstadoPago("PENDIENTE");
+            pagoPedidoRepo.save(pagoPedido);
+
+            // ✅ Solo se registra éxito si todo el bloque anterior completó sin errores
+            pedidoMetricaService.registrarExito();
+
+            return pedidoMapper.toResponseDTO(pedidoGuardado);
+
+        } catch (Exception e) {
+            // ✅ Registra el fallo y relanza la excepción para que Spring la maneje normalmente
+            pedidoMetricaService.registrarFallo();
+            throw e;
         }
-
-        pedido.setSubtotal(subtotalAcumulado);
-        pedido.setTotal(subtotalAcumulado + (subtotalAcumulado * IMPUESTO_IVA));
-
-        Pedido pedidoGuardado = pedidoRepo.save(pedido);
-        pedidoDetalleRepo.saveAll(detallesAGuardar);
-
-        platoService.recalcularDisponibilidadPorIngredientesAfectados(
-                dto.getDetalles().stream()
-                        .map(d -> platoRepo.findById(d.getIdPlato()).orElseThrow())
-                        .collect(Collectors.toList())
-        );
-
-        // Siempre PENDIENTE al crear — se confirma según el flujo de pago
-        PagoPedido pagoPedido = new PagoPedido();
-        pagoPedido.setPedido(pedidoGuardado);
-        pagoPedido.setMetodoPago(dto.getMetodoPago());
-        pagoPedido.setMonto(pedidoGuardado.getTotal());
-        pagoPedido.setFechaPago(LocalDateTime.now());
-        pagoPedido.setIdPasarela(null);
-        pagoPedido.setEstadoPago("PENDIENTE");
-        pagoPedidoRepo.save(pagoPedido);
-
-        return pedidoMapper.toResponseDTO(pedidoGuardado);
-    }
+    });
+}
 
     // ── Llamado por el webhook de Stripe (pago en línea confirmado) ───────────
     @Transactional
@@ -204,7 +221,8 @@ public class PedidoService {
 
     // ── Llamado por el webhook cuando el pago en línea es confirmado ──────────
     @Transactional
-    public void crearYConfirmarPedidoLinea(PedidoRequestDTO dto, String idPasarela) {
+        public void crearYConfirmarPedidoLinea(PedidoRequestDTO dto, String idPasarela) {
+        // ✅ crearPedido ya registra intento/exito/fallo, no se duplica aquí
         PedidoResponseDTO pedidoDTO = crearPedido(dto);
 
         Pedido pedido = pedidoRepo.findById(pedidoDTO.getIdPedido())
@@ -212,7 +230,7 @@ public class PedidoService {
                         "Pedido", pedidoDTO.getIdPedido().toString()));
 
         confirmarPagoPedido(pedido.getIdPedido(), idPasarela);
-    }
+        }
 
     // ── Consultas ─────────────────────────────────────────────────────────────
 

@@ -3,11 +3,13 @@ package com.restaurante.backend.controllers;
 import com.restaurante.backend.dtos.PedidoRequestDTO;
 import com.restaurante.backend.dtos.PedidoResponseDTO;
 import com.restaurante.backend.services.AuditService;
+import com.restaurante.backend.services.PedidoMetricaService;
 import com.restaurante.backend.services.PedidoService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -20,6 +22,7 @@ public class PedidoController {
 
     private final PedidoService pedidoService;
     private final AuditService auditService;
+    private final PedidoMetricaService pedidoMetricaService;
 
     @PostMapping
     public ResponseEntity<PedidoResponseDTO> crearPedido(
@@ -55,12 +58,6 @@ public class PedidoController {
         return ResponseEntity.ok(pedidos);
     }
  
-    /**
-     * PATCH /pedidos/{id}/avanzar-estado
-     * Avanza el estado del pedido según la transición permitida:
-     *   RECIBIDO → PAGADO → ENTREGADO
-     * Solo accesible por trabajadores y admins.
-     */
     @PatchMapping("/{id}/avanzar-estado")
     @PreAuthorize("hasAnyRole('TRABAJADOR', 'ADMIN')")
     public ResponseEntity<PedidoResponseDTO> avanzarEstado(@PathVariable Long id) {
@@ -72,4 +69,22 @@ public class PedidoController {
         
         return ResponseEntity.ok(pedido);
     }
+
+    @GetMapping("/metricas/rnf-07")
+        public ResponseEntity<Map<String, Object>> resumenRnf07() {
+            double intentos  = pedidoMetricaService.getIntentos();
+            double exitosos  = pedidoMetricaService.getExitosos();
+            double fallidos  = pedidoMetricaService.getFallidos();
+            double tasa      = intentos > 0 ? (exitosos / intentos) * 100 : 0;
+            boolean cumple   = tasa > 95;
+
+            return ResponseEntity.ok(Map.of(
+                    "intentosTotales",   intentos,
+                    "pedidosExitosos",   exitosos,
+                    "pedidosFallidos",   fallidos,
+                    "tasaExitoPorc",     String.format("%.2f%%", tasa),
+                    "criterio",          "(exitosos / intentos) × 100 > 95%",
+                    "cumpleRNF",         cumple
+            ));
+        }
 }

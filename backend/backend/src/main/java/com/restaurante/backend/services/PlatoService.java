@@ -7,8 +7,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @Service
@@ -21,6 +24,7 @@ public class PlatoService {
     private final PlatoConfigRepository     platoConfigRepository;
     private final CategoriaRepository       categoriaRepository;
     private final InventarioRepository      inventarioRepository;
+    private final Map<Long, Instant> ultimoToggleTimestamp = new ConcurrentHashMap<>();
 
     // ──────────────────────────────────────────────────────────────
     //  CREAR PLATO
@@ -87,6 +91,7 @@ public class PlatoService {
 
         config.setHabilitadoAdmin(!config.getHabilitadoAdmin());
         platoConfigRepository.save(config);
+        ultimoToggleTimestamp.put(idPlato, Instant.now()); // ✅ [RNF-19] única línea nueva
         return config.getHabilitadoAdmin();
     }
 
@@ -226,4 +231,9 @@ public class PlatoService {
         platoImagenRepository.save(platoImagen);
         return imagenUrl;
     }
+
+    public Instant getUltimoToggleTimestamp(Long idPlato) {
+        return ultimoToggleTimestamp.get(idPlato);
+    }
+    
 }
