@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import com.restaurante.backend.services.DisponibilidadMetricaService;
 
 import com.restaurante.backend.dtos.PagoResponseDTO;
 import com.restaurante.backend.dtos.ReservaConfirmarPagoRequestDTO;
@@ -34,6 +35,7 @@ public class ReservaController {
     private final ReservaService reservaService;
     private final UsuarioService usuarioService;
     private final AuditService auditService;
+    private final DisponibilidadMetricaService disponibilidadMetricaService;
 
     @GetMapping("/buscar")
     public ResponseEntity<List<ReservaResponseDTO>> buscar(
@@ -127,8 +129,17 @@ public class ReservaController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime hora,
             @RequestParam(required = false) Integer personas) {
-        
-        int disponibles = reservaService.contarMesasDisponibles(fecha, hora, personas);
-        return ResponseEntity.ok(disponibles);
+
+        // MÉTRICA — registrar que llegó una consulta
+        disponibilidadMetricaService.registrarConsulta();
+
+        try {
+            int disponibles = reservaService.contarMesasDisponibles(fecha, hora, personas);
+            return ResponseEntity.ok(disponibles);
+        } catch (Exception e) {
+            // MÉTRICA — registrar el error 500 y recalcular MTBF
+            disponibilidadMetricaService.registrarError500();
+            throw e; // relanzar para que GlobalExceptionHandler lo maneje
+        }
     }
 }

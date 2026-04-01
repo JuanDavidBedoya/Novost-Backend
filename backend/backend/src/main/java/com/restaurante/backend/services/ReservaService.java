@@ -39,7 +39,11 @@ public class ReservaService {
     private final PagoRepository pagoRepo;
     private final MesaRepository mesaRepo;
     private final EstadoReservaRepository estadoRepo;
-
+    
+    private final CargaConcurrenteMetricaService cargaConcurrenteMetricaService;
+    private final AsignacionMesaMetricaService asignacionMetricaService;
+    private final ConversionReservaMetricaService conversionMetricaService;
+    private final StripeMetricaService stripeMetricaService;
     private final ReservaMapper reservaMapper;
     private final EmailService emailService;
     private final PagoMapper pagoMapper;
@@ -50,6 +54,11 @@ public class ReservaService {
 
     @Transactional
     public ReservaResponseDTO crearReserva(ReservaRequestDTO dto) {
+
+        // MÉTRICA — inicio de procesamiento, registrar concurrencia
+        cargaConcurrenteMetricaService.registrarInicio();
+
+        try{
         Reserva reserva = reservaMapper.toEntity(dto);
 
         LocalTime horaDeseada = dto.getHoraInicio();
@@ -64,14 +73,23 @@ public class ReservaService {
 
         reserva.setHoraFin(reserva.getHoraInicio().plusHours(2));
 
-        List<Mesa> mesasCandidatas = mesaRepo.findByCapacidadGreaterThanEqualOrderByCapacidadAsc(reserva.getNumPersonas());
+        List<Mesa> mesasCandidatas = mesaRepo
+        .findByCapacidadGreaterThanEqualOrderByCapacidadAsc(reserva.getNumPersonas());
+
+        // MÉTRICA — medir tiempo del algoritmo de asignación
+        long tiempoInicio = System.currentTimeMillis();
 
         Mesa mesaAsignada = mesasCandidatas.stream()
             .filter(m -> reservaRepo.findOverlappingReservations(
-                    m.getIdMesa(), reserva.getFecha(), 
+                    m.getIdMesa(), reserva.getFecha(),
                     reserva.getHoraInicio(), reserva.getHoraFin()).isEmpty())
             .findFirst()
-            .orElseThrow(() -> new ValidationException("general", "No hay mesas disponibles para " + reserva.getNumPersonas() + " personas en ese horario."));
+            .orElseThrow(() -> new ValidationException("general",
+                    "No hay mesas disponibles para " + reserva.getNumPersonas()
+                    + " personas en ese horario."));
+
+        long duracionMs = System.currentTimeMillis() - tiempoInicio;
+        asignacionMetricaService.registrarAsignacion(duracionMs);
 
         reserva.setMesa(mesaAsignada);
         
@@ -83,9 +101,19 @@ public class ReservaService {
 
         Reserva guardada = reservaRepo.save(reserva);
 
-        enviarCorreoConfirmacion(guardada, montoTotal);
+        // MÉTRICA — se registró una intención de reserva
+        conversionMetricaService.registrarIntento();
 
+        // MÉTRICA RNF-18 — reserva completada exitosamente bajo carga
+        cargaConcurrenteMetricaService.registrarExito();
+
+        enviarCorreoConfirmacion(guardada, montoTotal);
         return reservaMapper.toResponseDTO(guardada);
+        } catch (Exception e) {
+        // MÉTRICA RNF-18 — fallo bajo carga (libera el contador de concurrencia)
+        cargaConcurrenteMetricaService.registrarFallo();
+        throw e; // relanzar para que GlobalExceptionHandler lo maneje
+        }
     }
     
     public List<ReservaResponseDTO> buscarReservas(LocalDate fecha, LocalTime hora, Integer personas) {
@@ -163,23 +191,32 @@ public class ReservaService {
         Double montoEsperado = reserva.getNumPersonas() * PRECIO_POR_PERSONA_USD;
         
         if (Math.abs(monto - montoEsperado) > 0.01) {
-             System.out.println(" Alerta: El monto pagado ($" + monto + ") no coincide con el esperado ($" + montoEsperado + ")");
+            System.out.println(" Alerta: El monto pagado ($" + monto + ") no coincide con el esperado ($" + montoEsperado + ")");
         }
 
         EstadoReserva estadoPagada = estadoRepo.findByNombre("PAGADA")
                 .orElseThrow(() -> new ResourceNotFoundException("Estado PAGADA no configurado en la base de datos"));
+
+        // MÉTRICA — registrar intento de comunicación con Stripe
+        stripeMetricaService.registrarIntento();
 
         Pago pago = new Pago();
         pago.setReserva(reserva);
         pago.setIdPasarela(idPasarela);
         pago.setMonto(monto);
         pago.setFechaPago(LocalDateTime.now());
-        pago.setEstadoPago("succeeded"); 
+        pago.setEstadoPago("succeeded");
 
         reserva.setEstadoReserva(estadoPagada);
 
         Pago pagoGuardado = pagoRepo.save(pago);
         reservaRepo.save(reserva);
+
+        // MÉTRICA — si llegó hasta aquí, Stripe respondió bien
+        stripeMetricaService.registrarExito();
+
+        // MÉTRICA — la reserva fue pagada exitosamente
+        conversionMetricaService.registrarPago();
 
         emailService.enviarFacturaConPDF(pagoGuardado);
 
@@ -195,6 +232,9 @@ public class ReservaService {
         if (reserva.getFecha().isBefore(LocalDate.now())) {
             throw new ValidationException("general", "No se pueden cancelar reservas de fechas pasadas.");
         }
+
+        // MÉTRICA — si se cancela sin haber pagado, es una reserva abandonada
+        boolean eraPendiente = "PENDIENTE".equals(reserva.getEstadoReserva().getNombre());
 
         pagoRepo.findByReserva(reserva).ifPresent(pago -> {
 
@@ -213,6 +253,11 @@ public class ReservaService {
         
         reserva.setEstadoReserva(estadoCancelado);
         Reserva guardada = reservaRepo.save(reserva);
+
+        // MÉTRICA — registrar abandono solo si nunca llegó a pagarse
+        if (eraPendiente) {
+            conversionMetricaService.registrarAbandonada();
+        }
 
         emailService.enviarCancelacionReserva(
             reserva.getUsuario().getEmail(),
@@ -244,13 +289,25 @@ public class ReservaService {
     }
 
     private boolean ejecutarReembolsoStripe(String idPasarela, Double monto) {
+        // MÉTRICA — cada reembolso también es un intento con Stripe
+        stripeMetricaService.registrarIntento();
         try {
             RefundCreateParams params = RefundCreateParams.builder()
                     .setPaymentIntent(idPasarela)
                     .build();
             Refund refund = Refund.create(params);
-            return "succeeded".equals(refund.getStatus());
+            boolean ok = "succeeded".equals(refund.getStatus());
+
+            // MÉTRICA — resultado del reembolso
+            if (ok) {
+                stripeMetricaService.registrarExito();
+            } else {
+                stripeMetricaService.registrarFalloTecnico();
+            }
+            return ok;
         } catch (StripeException e) {
+            // MÉTRICA — excepción técnica = fallo técnico
+            stripeMetricaService.registrarFalloTecnico();
             System.err.println("MENSAJE DE STRIPE: " + e.getMessage());
             System.err.println("TIPO DE ERROR: " + e.getCode());
             return false;

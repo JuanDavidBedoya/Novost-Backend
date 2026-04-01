@@ -43,7 +43,7 @@ public class PedidoService {
     private static final Double IMPUESTO_IVA = 0.19;
 
     @Transactional
-public PedidoResponseDTO crearPedido(PedidoRequestDTO dto) {
+    public PedidoResponseDTO crearPedido(PedidoRequestDTO dto) {
 
     // ✅ Registra el intento antes de cualquier lógica
     pedidoMetricaService.registrarIntento();

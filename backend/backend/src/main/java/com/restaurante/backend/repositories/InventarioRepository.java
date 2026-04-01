@@ -12,6 +12,8 @@ import java.util.List;
 @Repository
 public interface InventarioRepository extends JpaRepository<Inventario, Long> {
 
+    long countByTipoMedida(TipoMedida tipoMedida);
+    
     // Productos con stock por debajo del mínimo
     @Query("SELECT i FROM Inventario i WHERE i.stockActual < i.stockMinimo")
     List<Inventario> findProductosStockMinimo();

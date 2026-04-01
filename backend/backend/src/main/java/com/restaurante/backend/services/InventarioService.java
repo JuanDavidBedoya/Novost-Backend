@@ -24,6 +24,10 @@ public class InventarioService {
     private final InventarioRepository inventarioRepository;
     private final InventarioMapper inventarioMapper;
     private final EmailService emailService;
+    private final StockAlertaMetricaService stockAlertaMetricaService;
+    private final IntegridadStockMetricaService integridadStockMetricaService;
+    private final ModularidadInventarioMetricaService modularidadMetricaService;
+    private final AdaptabilidadInventarioMetricaService adaptabilidadMetricaService;
 
     // Crear nuevo producto en inventario
     @Transactional
@@ -31,7 +35,11 @@ public class InventarioService {
         Inventario inventario = inventarioMapper.toEntity(request);
         Inventario saved = inventarioRepository.save(inventario);
 
-        // Verificar si está por debajo del stock mínimo
+        // MÉTRICA — registrar creación de nuevo producto con su unidad de medida
+        adaptabilidadMetricaService.registrarProductoCreado(
+                saved.getTipoMedida().name()
+        );
+
         if (saved.getStockActual() < saved.getStockMinimo()) {
             notificarStockMinimo(saved);
         }
@@ -45,11 +53,16 @@ public class InventarioService {
         Inventario inventario = inventarioRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Producto no encontrado con ID: " + id));
 
-        inventarioMapper.updateEntity(inventario, request);
+        // MÉTRICA — inicio de medición
+        long tiempoInicio = System.currentTimeMillis();
 
+        inventarioMapper.updateEntity(inventario, request);
         Inventario saved = inventarioRepository.save(inventario);
 
-        // Verificar si está por debajo del stock mínimo
+        // MÉTRICA — fin de medición, registrar duración
+        long duracionMs = System.currentTimeMillis() - tiempoInicio;
+        modularidadMetricaService.registrarActualizacion(duracionMs);
+
         if (saved.getStockActual() < saved.getStockMinimo()) {
             notificarStockMinimo(saved);
         }
@@ -145,15 +158,24 @@ public class InventarioService {
         Inventario inventario = inventarioRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Producto no encontrado con ID: " + id));
 
+        // MÉTRICA — se intentó un consumo
+        integridadStockMetricaService.registrarIntento();
+
         if (cantidad <= 0) {
+            // MÉTRICA — rechazado: cantidad inválida
+            integridadStockMetricaService.registrarRechazado();
             throw new ValidationException("La cantidad debe ser mayor a 0");
         }
 
         if (inventario.getStockActual() < cantidad) {
+            // MÉTRICA — rechazado: stock insuficiente (protege contra saldo negativo)
+            integridadStockMetricaService.registrarRechazado();
             throw new ValidationException("Stock insuficiente. Stock actual: " + inventario.getStockActual());
         }
 
-        // Registrar consumo
+        // Llegó hasta aquí = consumo válido
+        integridadStockMetricaService.registrarAceptado();
+
         inventario.setUltimoConsumo(cantidad);
         inventario.setConsumoHoy(inventario.getConsumoHoy() + cantidad);
         inventario.setStockActual(inventario.getStockActual() - cantidad);
@@ -161,7 +183,6 @@ public class InventarioService {
 
         Inventario saved = inventarioRepository.save(inventario);
 
-        // Verificar si está por debajo del stock mínimo
         if (saved.getStockActual() < saved.getStockMinimo()) {
             notificarStockMinimo(saved);
         }
@@ -182,6 +203,8 @@ public class InventarioService {
 
     // Notificar stock mínimo
     private void notificarStockMinimo(Inventario inventario) {
+        // MÉTRICA — registrar que se intentó enviar una alerta
+        stockAlertaMetricaService.registrarIntento();
         try {
             String mensaje = String.format(
                 "ALERTA DE INVENTARIO: El producto %s está por debajo del stock mínimo.\n" +
@@ -195,8 +218,13 @@ public class InventarioService {
                 getUnidadDisplay(inventario)
             );
             emailService.enviarCorreo("alertas@novost.com", "Alerta de Stock Mínimo", mensaje);
+
+            // MÉTRICA — correo enviado correctamente
+            stockAlertaMetricaService.registrarExito();
+
         } catch (Exception e) {
-            // Log de error pero no fallar la operación
+            // MÉTRICA — el correo falló
+            stockAlertaMetricaService.registrarFallo();
             System.err.println("Error al enviar notificación de stock mínimo: " + e.getMessage());
         }
     }
