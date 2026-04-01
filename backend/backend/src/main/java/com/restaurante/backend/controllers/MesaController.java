@@ -28,7 +28,7 @@ public class MesaController {
         List<MesaResponseDTO> mesas = mesaRepo.findAll()
                 .stream()
                 .sorted((a, b) -> a.getNumeroMesa().compareTo(b.getNumeroMesa()))
-                .map(m -> new MesaResponseDTO(m.getIdMesa(), m.getNumeroMesa(), m.getCapacidad()))
+                .map(m -> new MesaResponseDTO(m.getIdMesa(), m.getCapacidad(), m.getNumeroMesa()))
                 .collect(Collectors.toList());
 
         // Log de consulta
