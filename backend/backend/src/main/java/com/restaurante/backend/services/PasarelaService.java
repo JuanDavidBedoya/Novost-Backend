@@ -8,10 +8,12 @@ import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.restaurante.backend.dtos.PedidoRequestDTO;
+import com.restaurante.backend.entities.Pedido;
 import com.restaurante.backend.entities.Plato;
 import com.restaurante.backend.entities.Reserva;
 import com.restaurante.backend.exceptions.PaymentException;
 import com.restaurante.backend.exceptions.ResourceNotFoundException;
+import com.restaurante.backend.repositories.PedidoRepository;
 import com.restaurante.backend.repositories.PlatoRepository;
 import com.restaurante.backend.repositories.ReservaRepository;
 import com.stripe.Stripe;
@@ -30,6 +32,7 @@ public class PasarelaService {
 
     private final ReservaRepository reservaRepo;
     private final PlatoRepository platoRepo;
+    private final PedidoRepository  pedidoRepo;
 
     private static final Double PRECIO_POR_PERSONA = 5.0;
 
@@ -149,4 +152,33 @@ public class PasarelaService {
             throw new RuntimeException("Error creando intento previo de pago: " + e.getMessage(), e);
         }
     }
+
+    public Map<String, String> crearIntentoPagoPedidoExistente(Long idPedido) {
+        Pedido pedido = pedidoRepo.findById(idPedido)
+                .orElseThrow(() -> new ResourceNotFoundException("Pedido", idPedido.toString()));
+
+        try {
+            long montoCentavos = Math.round(pedido.getTotal() * 100);
+
+            PaymentIntentCreateParams params = PaymentIntentCreateParams.builder()
+                    .setAmount(montoCentavos)
+                    .setCurrency("usd")
+                    // ✅ idPedido en metadata para que el webhook lo identifique
+                    .putMetadata("idPedido", String.valueOf(idPedido))
+                    .setAutomaticPaymentMethods(
+                            PaymentIntentCreateParams.AutomaticPaymentMethods.builder()
+                                    .setEnabled(true).build())
+                    .build();
+
+            PaymentIntent intent = PaymentIntent.create(params);
+
+            return Map.of(
+                    "clientSecret", intent.getClientSecret(),
+                    "idPasarela",   intent.getId()
+            );
+        } catch (StripeException e) {
+            throw new PaymentException("general", "No se pudo inicializar el pago: " + e.getMessage());
+        }
+    }
+
 }

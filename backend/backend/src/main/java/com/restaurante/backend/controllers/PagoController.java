@@ -74,4 +74,20 @@ public class PagoController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
+
+    @PostMapping("/pedido/crear-intento-existente")
+    public ResponseEntity<Map<String, String>> iniciarPagoPedidoExistente(
+            @RequestBody Map<String, Long> body) {
+        try {
+            Long idPedido = body.get("idPedido");
+            Map<String, String> datosStripe =
+                    pasarelaService.crearIntentoPagoPedidoExistente(idPedido);
+            auditService.logCreacion(AuditService.ENTIDAD_PAGO, idPedido,
+                    "Creación de intento de pago para pedido existente #" + idPedido);
+            return ResponseEntity.ok(datosStripe);
+        } catch (Exception e) {
+            System.err.println("Error creando intento para pedido existente: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
 }
