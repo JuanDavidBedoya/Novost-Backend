@@ -203,21 +203,16 @@ public class InventarioService {
 
     // Notificar stock mínimo
     private void notificarStockMinimo(Inventario inventario) {
-        // MÉTRICA — registrar que se intentó enviar una alerta
+    // MÉTRICA — registrar que se intentó enviar una alerta
         stockAlertaMetricaService.registrarIntento();
         try {
-            String mensaje = String.format(
-                "ALERTA DE INVENTARIO: El producto %s está por debajo del stock mínimo.\n" +
-                "Stock actual: %s %s\n" +
-                "Stock mínimo: %s %s\n" +
-                "Por favor, realizar pedido de reposición.",
+            emailService.enviarAlertaStockMinimo(
+                "alertas@novost.com",
                 inventario.getNombreAlimento(),
                 inventario.getStockActual(),
-                getUnidadDisplay(inventario),
                 inventario.getStockMinimo(),
                 getUnidadDisplay(inventario)
             );
-            emailService.enviarCorreo("alertas@novost.com", "Alerta de Stock Mínimo", mensaje);
 
             // MÉTRICA — correo enviado correctamente
             stockAlertaMetricaService.registrarExito();

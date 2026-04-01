@@ -1007,4 +1007,92 @@ public class EmailService {
             FOOTER;
     }
 
+    // ── Alerta de stock mínimo (HTML) ─────────────────────────────────────────
+
+    public void enviarAlertaStockMinimo(String email, String nombreAlimento,
+            Object stockActual, Object stockMinimo, String unidad) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setTo(email);
+            helper.setSubject("⚠️ Alerta de Stock Mínimo - " + nombreAlimento);
+            helper.setText(buildAlertaStockMinimoHtml(nombreAlimento, stockActual, stockMinimo, unidad), true);
+            mailSender.send(message);
+            System.out.println("Alerta de stock mínimo enviada a: " + email);
+        } catch (Exception e) {
+            System.err.println("Fallo al enviar alerta de stock mínimo: " + e.getMessage());
+        }
+    }
+
+    private String buildAlertaStockMinimoHtml(String nombreAlimento,
+            Object stockActual, Object stockMinimo, String unidad) {
+        return buildHeader("Alerta de Inventario") +
+            "<tr><td style='padding:40px 40px 32px;'>" +
+
+            // Ícono de alerta
+            "<div style='text-align:center;margin-bottom:24px;'>" +
+            "<div style='display:inline-block;background:#fff8e1;border-radius:50%;" +
+            "width:64px;height:64px;line-height:64px;text-align:center;font-size:32px;'>" +
+            "⚠️</div></div>" +
+
+            // Título
+            "<p style='margin:0 0 8px;font-size:22px;font-weight:800;color:#1a1a2e;" +
+            "text-align:center;'>Stock por debajo del mínimo</p>" +
+            "<p style='margin:0 0 28px;font-size:15px;color:#6b7280;line-height:1.6;" +
+            "text-align:center;'>" +
+            "El siguiente producto requiere reposición inmediata en el inventario." +
+            "</p>" +
+
+            // Tarjeta del producto
+            "<table width='100%' cellpadding='0' cellspacing='0' style='margin-bottom:24px;'><tr>" +
+            "<td style='background:#fff8e1;border:1.5px solid #fde68a;" +
+            "border-radius:14px;padding:20px 24px;'>" +
+            "<p style='margin:0 0 4px;font-size:11px;font-weight:700;color:#b45309;" +
+            "text-transform:uppercase;letter-spacing:0.8px;'>Producto</p>" +
+            "<p style='margin:0;font-size:20px;font-weight:900;color:#1a1a2e;'>" + nombreAlimento + "</p>" +
+            "</td></tr></table>" +
+
+            // Tarjeta de stock actual vs mínimo
+            "<table width='100%' cellpadding='0' cellspacing='0' style='margin-bottom:24px;'><tr>" +
+            "<td style='background:#f8f9fa;border:1.5px solid #e5e7eb;" +
+            "border-radius:14px;padding:20px 24px;'>" +
+            "<table width='100%' cellpadding='0' cellspacing='0'>" +
+            "<tr>" +
+            // Stock actual
+            "<td style='width:50%;padding-bottom:8px;'>" +
+            "<p style='margin:0 0 3px;font-size:11px;font-weight:700;color:#9ca3af;" +
+            "text-transform:uppercase;letter-spacing:0.8px;'>Stock actual</p>" +
+            "<p style='margin:0;font-size:22px;font-weight:900;color:#ef4444;'>" +
+            stockActual + " <span style='font-size:14px;font-weight:600;color:#9ca3af;'>" + unidad + "</span></p></td>" +
+            // Stock mínimo
+            "<td style='width:50%;padding-bottom:8px;'>" +
+            "<p style='margin:0 0 3px;font-size:11px;font-weight:700;color:#9ca3af;" +
+            "text-transform:uppercase;letter-spacing:0.8px;'>Stock mínimo</p>" +
+            "<p style='margin:0;font-size:22px;font-weight:900;color:#7E22CE;'>" +
+            stockMinimo + " <span style='font-size:14px;font-weight:600;color:#9ca3af;'>" + unidad + "</span></p></td>" +
+            "</tr>" +
+            "</table>" +
+            "</td></tr></table>" +
+
+            // Aviso de acción requerida
+            "<table width='100%' cellpadding='0' cellspacing='0' style='margin-bottom:16px;'><tr>" +
+            "<td style='background:#fef2f2;border:1.5px solid #fecaca;" +
+            "border-radius:12px;padding:14px 18px;'>" +
+            "<p style='margin:0;font-size:14px;color:#dc2626;font-weight:600;line-height:1.6;'>" +
+            "🚨 <strong>Acción requerida:</strong> Por favor, realiza un pedido de reposición a la brevedad posible." +
+            "</p></td></tr></table>" +
+
+            // Mensaje informativo final
+            "<table width='100%' cellpadding='0' cellspacing='0'><tr>" +
+            "<td style='background:#f9fafb;border:1.5px solid #e5e7eb;" +
+            "border-radius:12px;padding:16px 20px;'>" +
+            "<p style='margin:0;font-size:13px;color:#6b7280;font-weight:500;line-height:1.6;" +
+            "text-align:center;'>" +
+            "Este mensaje fue generado automáticamente por el sistema de inventario de Novost." +
+            "</p></td></tr></table>" +
+
+            "</td></tr>" +
+            FOOTER;
+    }
+
 }
