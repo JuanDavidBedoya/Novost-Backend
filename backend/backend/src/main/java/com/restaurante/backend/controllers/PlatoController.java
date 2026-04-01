@@ -3,6 +3,7 @@ package com.restaurante.backend.controllers;
 import com.restaurante.backend.dtos.*;
 import com.restaurante.backend.entities.Categoria;
 import com.restaurante.backend.repositories.CategoriaRepository;
+import com.restaurante.backend.services.AuditService;
 import com.restaurante.backend.services.PlatoService;
 
 
@@ -21,6 +22,7 @@ public class PlatoController {
 
     private final PlatoService platoService;
     private final CategoriaRepository categoriaRepository;
+    private final AuditService auditService;
 
     // ── Endpoints existentes ────────────────────────────────────────
     @GetMapping("/fuertes")
@@ -40,7 +42,12 @@ public class PlatoController {
             @PathVariable Long idPlato,
             @RequestParam("imagenUrl") String imagenUrl) {
         try {
-            return ResponseEntity.ok(Map.of("imagenUrl", platoService.guardarImagenUrl(idPlato, imagenUrl)));
+            String url = platoService.guardarImagenUrl(idPlato, imagenUrl);
+
+            auditService.logActualizacion(AuditService.ENTIDAD_PLATO, idPlato,
+                "Imagen actualizada para plato #" + idPlato, null, "imagenUrl: " + url);
+
+            return ResponseEntity.ok(Map.of("imagenUrl", url));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
@@ -69,6 +76,10 @@ public class PlatoController {
     public ResponseEntity<Map<String, String>> crearPlato(@RequestBody CrearPlatoRequestDTO dto) {
         try {
             platoService.crearPlato(dto);
+
+            auditService.logCreacion(AuditService.ENTIDAD_PLATO, null,
+                "Creación de nuevo plato: " + dto.getNombrePlato());
+
             return ResponseEntity.ok(Map.of("mensaje", "Plato creado exitosamente"));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -80,6 +91,11 @@ public class PlatoController {
     public ResponseEntity<Map<String, Object>> toggleHabilitar(@PathVariable Long idPlato) {
         try {
             boolean nuevoEstado = platoService.toggleHabilitadoAdmin(idPlato);
+
+            auditService.logActualizacion(AuditService.ENTIDAD_PLATO, idPlato,
+                "Toggle habilitado admin para plato #" + idPlato, null,
+                "habilitadoAdmin: " + nuevoEstado);
+
             return ResponseEntity.ok(Map.of("habilitadoAdmin", nuevoEstado));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));

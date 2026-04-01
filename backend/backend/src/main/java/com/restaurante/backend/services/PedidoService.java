@@ -99,6 +99,8 @@ public class PedidoService {
                                 "'. Faltan ingredientes (" + itemInventario.getNombreAlimento() + ").");
                     }
 
+                    itemInventario.setUltimoConsumo(cantidadRequerida);
+                    itemInventario.setConsumoHoy(itemInventario.getConsumoHoy() + cantidadRequerida);
                     itemInventario.setStockActual(itemInventario.getStockActual() - cantidadRequerida);
                     itemInventario.setFechaActualizacion(LocalDate.now());
                     inventarioRepo.save(itemInventario);

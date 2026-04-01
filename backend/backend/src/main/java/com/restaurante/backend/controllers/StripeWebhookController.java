@@ -2,6 +2,7 @@ package com.restaurante.backend.controllers;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.restaurante.backend.dtos.PedidoRequestDTO;
+import com.restaurante.backend.services.AuditService;
 import com.restaurante.backend.services.PedidoService;
 import com.restaurante.backend.services.ReservaService;
 import com.stripe.exception.SignatureVerificationException;
@@ -23,13 +24,16 @@ public class StripeWebhookController {
     private final ReservaService reservaService;
     private final PedidoService pedidoService;
     private final ObjectMapper objectMapper;
+    private final AuditService auditService;
 
     public StripeWebhookController(ReservaService reservaService,
                                    PedidoService pedidoService,
-                                   ObjectMapper objectMapper) {
+                                   ObjectMapper objectMapper,
+                                   AuditService auditService) {
         this.reservaService = reservaService;
         this.pedidoService  = pedidoService;
         this.objectMapper   = objectMapper;
+        this.auditService   = auditService;
     }
 
     @SuppressWarnings("deprecation")
@@ -69,6 +73,11 @@ public class StripeWebhookController {
             if (idReservaStr != null) {
                 try {
                     reservaService.procesarPagoReserva(Long.parseLong(idReservaStr), idPasarela, monto);
+
+                    auditService.logActualizacion(AuditService.ENTIDAD_RESERVA, Long.parseLong(idReservaStr),
+                        "Pago de reserva confirmado por Stripe (webhook)", null,
+                        "estadoPago: PAGADO, idPasarela: " + idPasarela);
+
                     System.out.println("Reserva #" + idReservaStr + " pagada.");
                 } catch (Exception e) {
                     System.err.println("Error procesando pago de reserva: " + e.getMessage());
@@ -78,6 +87,11 @@ public class StripeWebhookController {
             } else if (idPedidoStr != null) {
                 try {
                     pedidoService.confirmarPagoPedido(Long.parseLong(idPedidoStr), idPasarela);
+
+                    auditService.logActualizacion(AuditService.ENTIDAD_PEDIDO, Long.parseLong(idPedidoStr),
+                        "Pago de pedido confirmado por Stripe (webhook)", null,
+                        "estadoPago: PAGADO, idPasarela: " + idPasarela);
+
                     System.out.println("Pedido #" + idPedidoStr + " confirmado.");
                 } catch (Exception e) {
                     System.err.println("Error confirmando pago de pedido: " + e.getMessage());
@@ -96,6 +110,9 @@ public class StripeWebhookController {
 
                     // Crear el pedido y confirmar el pago en una sola transacción
                     pedidoService.crearYConfirmarPedidoLinea(pedidoRequest, idPasarela);
+
+                    auditService.logCreacion(AuditService.ENTIDAD_PEDIDO, null,
+                        "Pedido en línea creado y confirmado vía Stripe (webhook), idPasarela: " + idPasarela);
 
                     System.out.println("Pedido en línea creado y confirmado. Pasarela: " + idPasarela);
                 } catch (Exception e) {
