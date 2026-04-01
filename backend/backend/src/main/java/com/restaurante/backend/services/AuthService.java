@@ -206,8 +206,8 @@ public class AuthService {
         usuario.setExpiracionCodigo(LocalDateTime.now().plusMinutes(5)); 
         usuarioRepository.save(usuario);
 
-        //String link = "http://novost-frontend-aws.s3-website.us-east-2.amazonaws.com/restaurar-password?token=" + token;  LINK DESPLEGADO
-        String link = "http://localhost:5173/restaurar-password?token=" + token;  // LINK LOCAL
+        String link = "http://novost-frontend-aws.s3-website.us-east-2.amazonaws.com/restaurar-password?token=" + token;
+        //String link = "http://localhost:5173/restaurar-password?token=" + token;
 
         emailService.enviarRecuperacionPassword(usuario.getEmail(), usuario.getNombre(), link);
     }
