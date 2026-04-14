@@ -14,6 +14,7 @@ import com.restaurante.backend.entities.Pago;
 import com.restaurante.backend.entities.PagoPedido;
 import com.restaurante.backend.entities.Pedido;
 import com.restaurante.backend.entities.PedidoDetalle;
+import com.restaurante.backend.entities.Reserva;
 import com.restaurante.backend.repositories.PedidoDetalleRepository;
 
 import jakarta.mail.internet.MimeMessage;
@@ -708,14 +709,14 @@ public class EmailService {
 
     // ── Factura de PEDIDO (HTML) ──────────────────────────────────────────────
 
-    public void enviarFacturaPedido(PagoPedido pagoPedido, String emailDestino, String nombreCliente) {
+    public void enviarFacturaPedido(PagoPedido pagoPedido, String emailDestino, String nombreCliente, Reserva reserva) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
             helper.setTo(emailDestino);
             helper.setSubject("Tu Factura de Pedido #" +
                     pagoPedido.getPedido().getIdPedido() + " - Novost");
-            helper.setText(buildFacturaPedidoHtml(pagoPedido, nombreCliente), true);
+            helper.setText(buildFacturaPedidoHtml(pagoPedido, nombreCliente, reserva), true);
             mailSender.send(message);
             System.out.println("Factura de pedido enviada con éxito.");
         } catch (Exception e) {
@@ -723,8 +724,37 @@ public class EmailService {
         }
     }
 
-    private String buildFacturaPedidoHtml(PagoPedido pagoPedido, String nombreCliente) {
+    private String buildFacturaPedidoHtml(PagoPedido pagoPedido, String nombreCliente, Reserva reserva) {
         Pedido pedido = pagoPedido.getPedido();
+
+        // ── Bloque de Reserva (solo si existe) ────────────────────────────────
+        String reservaHtml = "";
+        if (reserva != null) {
+            reservaHtml = 
+                "<table width='100%' cellpadding='0' cellspacing='0' style='margin-bottom:24px;'><tr>" +
+                "<td style='background:#f5f3ff;border:1.5px solid #e9d5ff;" + // Fondo morado suave
+                "border-radius:14px;padding:18px 22px;'>" +
+                "<p style='margin:0 0 12px;font-size:14px;font-weight:800;color:#7E22CE;'>" +
+                "📅 Detalles de tu Reserva Asociada</p>" +
+                "<table width='100%' cellpadding='0' cellspacing='0'>" +
+                "<tr>" +
+                // Nueva columna para el ID
+                "<td style='width:33%;'>" +
+                "<p style='margin:0 0 3px;font-size:11px;font-weight:700;color:#9ca3af;" +
+                "text-transform:uppercase;letter-spacing:0.8px;'>ID Reserva</p>" +
+                "<p style='margin:0;font-size:16px;font-weight:900;color:#7E22CE;'>" +
+                "#" + reserva.getIdReserva() + "</p></td>" +
+                // Columna Fecha
+                "<td style='width:33%;'>" +
+                "<p style='margin:0 0 3px;font-size:11px;font-weight:700;color:#9ca3af;" +
+                "text-transform:uppercase;letter-spacing:0.8px;'>Fecha</p>" +
+                "<p style='margin:0;font-size:15px;font-weight:700;color:#1a1a2e;'>" + 
+                reserva.getFecha().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) + "</p></td>" +
+                "</tr>" +
+                "</table>" +
+                "</td></tr></table>";
+        }
+
         List<PedidoDetalle> detalles = pedidoDetalleRepo.findByPedido(pedido);
 
         String idTx = pagoPedido.getIdPasarela() != null
@@ -774,6 +804,9 @@ public class EmailService {
             "<p style='margin:0 0 28px;font-size:15px;color:#6b7280;line-height:1.6;'>" +
             "Aquí tienes el detalle de tu pedido en Novost." +
             "</p>" +
+
+            // ✅ INYECCIÓN DE LA RESERVA (Se inyecta aquí. Si no hay reserva, insertará un string vacío)
+            reservaHtml +
 
             // Info del pedido
             "<table width='100%' cellpadding='0' cellspacing='0' style='margin-bottom:24px;'><tr>" +
@@ -832,7 +865,7 @@ public class EmailService {
             "<th style='padding:12px;font-size:11px;font-weight:800;color:#ffffff;" +
             "text-transform:uppercase;letter-spacing:0.8px;text-align:right;'>Subtotal</th>" +
             "</tr></thead>" +
-            "<tbody>" + filasPlatos + "</tbody>" +
+            "<tbody>" + filasPlatos.toString() + "</tbody>" +
             "</table>" +
 
             // Observaciones
@@ -930,78 +963,6 @@ public class EmailService {
             "Si no solicitaste esta acción o crees que fue un error, " +
             "por favor contáctanos de inmediato." +
             "</p></td></tr></table>" +
- 
-            "</td></tr>" +
-            FOOTER;
-    }
-
-    // ── Bienvenida de vuelta tras reactivación (HTML) ────────────────────────
- 
-    public void enviarBienvenidaDeVuelta(String email, String nombre) {
-        try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            helper.setTo(email);
-            helper.setSubject("¡Te damos la bienvenida de vuelta a Novost, " + nombre + "!");
-            helper.setText(buildBienvenidaDeVueltaHtml(nombre), true);
-            mailSender.send(message);
-            System.out.println("Correo de bienvenida de vuelta enviado a: " + email);
-        } catch (Exception e) {
-            System.err.println("Fallo al enviar bienvenida de vuelta: " + e.getMessage());
-        }
-    }
- 
-    private String buildBienvenidaDeVueltaHtml(String nombre) {
-        return buildHeader("¡De vuelta en Novost!") +
-            "<tr><td style='padding:40px 40px 32px;'>" +
- 
-            // Ícono celebración
-            "<div style='text-align:center;margin-bottom:24px;'>" +
-            "<div style='display:inline-block;background:#f5f3ff;border-radius:50%;" +
-            "width:64px;height:64px;line-height:64px;text-align:center;font-size:32px;'>" +
-            "🎊</div></div>" +
- 
-            // Saludo
-            "<p style='margin:0 0 8px;font-size:22px;font-weight:800;color:#1a1a2e;" +
-            "text-align:center;'>¡Bienvenido de vuelta, " + nombre + "!</p>" +
-            "<p style='margin:0 0 28px;font-size:15px;color:#6b7280;line-height:1.6;" +
-            "text-align:center;'>" +
-            "Nos alegra mucho tenerte de regreso. Tu cuenta ha sido " +
-            "<strong style='color:#1a1a2e;'>reactivada exitosamente</strong> " +
-            "con tus nuevos datos." +
-            "</p>" +
- 
-            // Tarjeta morada
-            "<table width='100%' cellpadding='0' cellspacing='0' style='margin-bottom:24px;'><tr>" +
-            "<td style='background:linear-gradient(135deg,#7E22CE 0%,#a855f7 100%);" +
-            "border-radius:16px;padding:24px;text-align:center;'>" +
-            "<p style='margin:0 0 8px;font-size:24px;'>🍽️</p>" +
-            "<p style='margin:0 0 8px;font-size:18px;font-weight:900;color:#ffffff;'>" +
-            "¡Te echamos de menos!</p>" +
-            "<p style='margin:0;font-size:14px;color:rgba(255,255,255,0.85);line-height:1.6;'>" +
-            "Ya puedes volver a hacer reservas, explorar el menú y disfrutar " +
-            "de la mejor experiencia en Novost." +
-            "</p>" +
-            "</td></tr></table>" +
- 
-            // Tarjetas de características
-            "<table width='100%' cellpadding='0' cellspacing='0'>" +
-            "<tr>" +
-            "<td style='width:50%;padding-right:8px;vertical-align:top;'>" +
-            "<table width='100%' cellpadding='0' cellspacing='0'><tr>" +
-            "<td style='background:#f5f3ff;border-radius:12px;padding:16px;text-align:center;'>" +
-            "<div style='font-size:24px;margin-bottom:6px;'>📅</div>" +
-            "<p style='margin:0;font-size:13px;font-weight:700;color:#7E22CE;'>Reservas</p>" +
-            "<p style='margin:4px 0 0;font-size:12px;color:#6b7280;'>Reserva tu mesa fácilmente</p>" +
-            "</td></tr></table></td>" +
-            "<td style='width:50%;padding-left:8px;vertical-align:top;'>" +
-            "<table width='100%' cellpadding='0' cellspacing='0'><tr>" +
-            "<td style='background:#f0fdf4;border-radius:12px;padding:16px;text-align:center;'>" +
-            "<div style='font-size:24px;margin-bottom:6px;'>🍽️</div>" +
-            "<p style='margin:0;font-size:13px;font-weight:700;color:#16a34a;'>Pedidos</p>" +
-            "<p style='margin:4px 0 0;font-size:12px;color:#6b7280;'>Pide desde la mesa</p>" +
-            "</td></tr></table></td>" +
-            "</tr></table>" +
  
             "</td></tr>" +
             FOOTER;

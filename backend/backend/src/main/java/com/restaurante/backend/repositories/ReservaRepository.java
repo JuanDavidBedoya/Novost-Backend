@@ -3,7 +3,6 @@ package com.restaurante.backend.repositories;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
-import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
@@ -98,11 +97,12 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
     );
 
     @Query("SELECT r FROM Reserva r WHERE r.mesa.idMesa = :idMesa " +
-           "AND r.fecha = :fecha " +
-           "AND r.horaInicio <= :horaActual " +
-           "AND r.horaFin >= :horaActual " +
-           "AND r.estadoReserva.nombre <> 'CANCELADA'")
-    Optional<Reserva> findReservaActivaPorMesaYHora(
+       "AND r.fecha = :fecha " +
+       "AND r.horaInicio <= :horaActual " +
+       "AND r.horaFin > :horaActual " +
+       "AND r.estadoReserva.nombre = 'FINALIZADA' " +
+       "ORDER BY r.horaInicio DESC")
+    List<Reserva> findReservaActivaPorMesaYHora(
         @Param("idMesa") Long idMesa, 
         @Param("fecha") LocalDate fecha, 
         @Param("horaActual") LocalTime horaActual
