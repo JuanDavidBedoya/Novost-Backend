@@ -229,6 +229,10 @@ public class ReservaService {
         Reserva reserva = reservaRepo.findById(idReserva)
                 .orElseThrow(() -> new ResourceNotFoundException("Reserva", idReserva.toString()));
 
+        if ("FINALIZADA".equals(reserva.getEstadoReserva().getNombre())) {
+            throw new ValidationException("general", "No se puede cancelar una reserva que ya ha sido finalizada.");
+        }
+
         if (reserva.getFecha().isBefore(LocalDate.now())) {
             throw new ValidationException("general", "No se pueden cancelar reservas de fechas pasadas.");
         }
