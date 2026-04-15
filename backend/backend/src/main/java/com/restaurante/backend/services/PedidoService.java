@@ -18,7 +18,6 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -57,8 +56,8 @@ public class PedidoService {
             Mesa mesa = mesaRepo.findById(dto.getIdMesa())
                     .orElseThrow(() -> new ResourceNotFoundException("Mesa", dto.getIdMesa().toString()));
 
-            Optional<Reserva> reservaActiva = reservaRepo.findReservaActivaPorMesaYHora(
-                    mesa.getIdMesa(), fechaActual, horaActual);
+            List<Reserva> reservasActivas = reservaRepo.findReservaActivaPorMesaYHora(
+            mesa.getIdMesa(), fechaActual, horaActual);
 
             String emailLogueado = SecurityContextHolder.getContext().getAuthentication().getName();
             Usuario usuarioLogueado = usuarioRepo.findByEmail(emailLogueado)
@@ -66,7 +65,7 @@ public class PedidoService {
 
             Pedido pedido = new Pedido();
             pedido.setMesa(mesa);
-            pedido.setReserva(reservaActiva.orElse(null));
+            pedido.setReserva(reservasActivas.isEmpty() ? null : reservasActivas.get(0));
             pedido.setUsuario(usuarioLogueado);
             pedido.setFechaPedido(fechaActual);
             pedido.setHoraPedido(horaActual);
@@ -270,6 +269,7 @@ public class PedidoService {
             Pedido pedido = pagoPedido.getPedido();
             String email;
             String nombre;
+            Reserva reservaAsociada = pedido.getReserva();
 
             if (pedido.getUsuario() != null) {
                 // Caso normal: el pedido tiene su propio usuario registrado
@@ -285,7 +285,7 @@ public class PedidoService {
                 return;
             }
 
-            emailService.enviarFacturaPedido(pagoPedido, email, nombre);
+            emailService.enviarFacturaPedido(pagoPedido, email, nombre, reservaAsociada);
 
         } catch (Exception e) {
             System.err.println("No se pudo enviar la factura del pedido: " + e.getMessage());
