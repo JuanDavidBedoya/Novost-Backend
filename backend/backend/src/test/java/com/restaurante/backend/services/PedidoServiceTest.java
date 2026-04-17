@@ -45,11 +45,15 @@ class PedidoServiceTest {
 
     @InjectMocks private PedidoService pedidoService;
 
+    @SuppressWarnings("unused")
     private Mesa mesa;
+    @SuppressWarnings("unused")
     private Plato plato;
     private Pedido pedido;
+    @SuppressWarnings("unused")
     private Usuario usuario;
 
+@SuppressWarnings("unused")
 @BeforeEach
     void setUp() {
         doNothing().when(pedidoMetricaService).registrarIntento();
