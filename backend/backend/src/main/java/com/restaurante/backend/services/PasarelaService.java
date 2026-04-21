@@ -23,23 +23,35 @@ import com.stripe.param.PaymentIntentCreateParams;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 
+// Servicio de integración con Stripe para crear intents de pago de reservas y pedidos
+
 @Service
 @RequiredArgsConstructor
 public class PasarelaService {
 
+    // Inyección de dependencia: clave secreta de Stripe desde propiedades
+
     @Value("${stripe.key.secret}")
     private String stripeSecretKey;
+
+    // Inyección de dependencias: repositorios de reservas, platos y pedidos
 
     private final ReservaRepository reservaRepo;
     private final PlatoRepository platoRepo;
     private final PedidoRepository  pedidoRepo;
 
+    // Constante: precio fijo por persona para cálculo de monto de reserva
+
     private static final Double PRECIO_POR_PERSONA = 5.0;
+
+    // Método init: inicializa API de Stripe con la clave secreta al levantar la aplicación
 
     @PostConstruct
     public void init() {
         Stripe.apiKey = stripeSecretKey;
     }
+
+    // Método crearIntentoPago: crea PaymentIntent en Stripe para pago de reserva (monto = personas × $5)
 
     public Map<String, String> crearIntentoPago(Long idReserva) {
         try {
@@ -78,6 +90,8 @@ public class PasarelaService {
         }
     }
 
+    // Método crearIntentoPagoPedido: crea PaymentIntent para pago de pedido con monto dinámico
+
     public Map<String, String> crearIntentoPagoPedido(Long idPedido, Double monto) {
         try {
             long montoCentavos = (long) (monto * 100);
@@ -111,6 +125,8 @@ public class PasarelaService {
             throw new PaymentException("general", "Error al procesar el pago: " + e.getMessage());
         }
     }
+
+    // Método crearIntentoPagoPedidoPrevio: calcula monto con IVA (19%), serializa pedido completo en metadata y crea intent
 
     public Map<String, String> crearIntentoPagoPedidoPrevio(PedidoRequestDTO pedidoRequest) {
         try {
@@ -152,6 +168,8 @@ public class PasarelaService {
             throw new RuntimeException("Error creando intento previo de pago: " + e.getMessage(), e);
         }
     }
+
+    // Método crearIntentoPagoPedidoExistente: obtiene pedido existente, usa su total y crea intent para procesamiento
 
     public Map<String, String> crearIntentoPagoPedidoExistente(Long idPedido) {
         Pedido pedido = pedidoRepo.findById(idPedido)

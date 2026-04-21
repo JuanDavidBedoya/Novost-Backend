@@ -10,15 +10,23 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+// Servicio de métricas para monitorear fallos en creación de pedidos (RNF-11)
+
 @Service
 public class PedidoFalloMetricaService {
+
+    // Atributos: contadores para cada tipo de fallo (carrito vacío, mesa no seleccionada, error servidor)
 
     private final Counter contadorCarritoVacio;
     private final Counter contadorMesaNoSeleccionada;
     private final Counter contadorErrorServidor;
 
+    // Lista thread-safe y formato de fecha para historial de fallos
+
     private final List<Map<String, String>> historialFallos = new CopyOnWriteArrayList<>();
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+    // Constructor: inicializa contadores en el registry con tags de RNF-11 y tipo de error
 
     public PedidoFalloMetricaService(MeterRegistry registry) {
 
@@ -41,6 +49,8 @@ public class PedidoFalloMetricaService {
                 .register(registry);
     }
 
+    // Método registrarFallo: incrementa contador según tipo de error y registra evento en historial con timestamp
+
     public void registrarFallo(String tipoError, String motivo) {
         switch (tipoError) {
             case "CARRITO_VACIO"        -> contadorCarritoVacio.increment();
@@ -54,6 +64,8 @@ public class PedidoFalloMetricaService {
                 "fechaHora", LocalDateTime.now().format(FMT)
         ));
     }
+
+    // Métodos getter: retornan historial completo de fallos y cantidad total
 
     public List<Map<String, String>> getHistorial() { return historialFallos; }
     public int getTotalFallos()                      { return historialFallos.size(); }

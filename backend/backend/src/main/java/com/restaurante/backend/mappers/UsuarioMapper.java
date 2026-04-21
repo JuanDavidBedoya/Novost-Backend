@@ -4,8 +4,12 @@ import com.restaurante.backend.dtos.UsuarioResponseDTO;
 import com.restaurante.backend.entities.Usuario;
 import org.springframework.stereotype.Component;
 
+// Mapper para convertir entidad Usuario a DTO de respuesta
+
 @Component
 public class UsuarioMapper {
+
+    // Método toUsuarioResponseDTO: transforma entidad Usuario en UsuarioResponseDTO incluyendo nombre del rol (o "SIN_ROL" si es nulo)
 
     public UsuarioResponseDTO toUsuarioResponseDTO(Usuario usuario) {
         if (usuario == null) {

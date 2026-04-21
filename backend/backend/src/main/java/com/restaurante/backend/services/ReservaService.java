@@ -31,9 +31,13 @@ import com.stripe.param.RefundCreateParams;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 
+// Servicio de gestión de reservas: creación, búsqueda, pago, cancelación y métricas
+
 @Service
 @RequiredArgsConstructor
 public class ReservaService {
+
+    // Inyección de dependencias: repositorios, servicios de métricas, mappers y email
 
     private final ReservaRepository reservaRepo;
     private final PagoRepository pagoRepo;
@@ -48,9 +52,13 @@ public class ReservaService {
     private final EmailService emailService;
     private final PagoMapper pagoMapper;
 
+    // Constantes: precio por persona, horas de operación del restaurante
+
     private static final Double PRECIO_POR_PERSONA_USD = 5.0;
     private static final LocalTime HORA_APERTURA = LocalTime.of(12, 00);
     private static final LocalTime HORA_CIERRE = LocalTime.of(23, 59);
+
+    // Método crearReserva: valida horario, asigna mesa disponible, registra métricas de concurrencia y conversión
 
     @Transactional
     public ReservaResponseDTO crearReserva(ReservaRequestDTO dto) {
@@ -115,6 +123,8 @@ public class ReservaService {
         throw e; // relanzar para que GlobalExceptionHandler lo maneje
         }
     }
+
+    // Método buscarReservas: obtiene todas las reservas con filtros opcionales (fecha, hora, personas)
     
     public List<ReservaResponseDTO> buscarReservas(LocalDate fecha, LocalTime hora, Integer personas) {
         List<Reserva> entidades = reservaRepo.buscarTodasConFiltros(fecha, hora, personas);
@@ -123,6 +133,8 @@ public class ReservaService {
                 .map(reservaMapper::toDto)
                 .collect(Collectors.toList());
     }
+
+    // Método contarMesasDisponibles: calcula mesas libres según criterios de disponibilidad
 
     public int contarMesasDisponibles(LocalDate fecha, LocalTime hora, Integer personas) {
         List<Mesa> todasLasMesas = mesaRepo.findAll();
@@ -165,6 +177,8 @@ public class ReservaService {
                 .count();
     }
 
+    // Método buscarReservasPorUsuario: obtiene reservas de un usuario específico por cédula
+
     @Transactional
     public List<ReservaResponseDTO> buscarReservasPorUsuario(String cedula) {
         List<Reserva> entidades = reservaRepo.findByUsuarioCedula(cedula);
@@ -174,6 +188,8 @@ public class ReservaService {
                 .collect(Collectors.toList());
     }
 
+    // Método buscarReservasPorUsuarioConFiltros: obtiene reservas de usuario con filtros opcionales
+
     @Transactional
     public List<ReservaResponseDTO> buscarReservasPorUsuarioConFiltros(String cedula, LocalDate fecha, LocalTime hora, Integer personas) {
         List<Reserva> entidades = reservaRepo.buscarTodasPorUsuarioConFiltros(cedula, fecha, hora, personas);
@@ -182,6 +198,8 @@ public class ReservaService {
                 .map(reservaMapper::toDto)
                 .collect(Collectors.toList());
     }
+
+    // Método procesarPagoReserva: valida monto, cambia estado a PAGADA, registra métricas Stripe y envía factura
 
     @Transactional
     public PagoResponseDTO procesarPagoReserva(Long idReserva, String idPasarela, Double monto) {
@@ -222,6 +240,8 @@ public class ReservaService {
 
         return pagoMapper.toResponseDTO(pagoGuardado);
     }
+
+    // Método cancelarReserva: valida estado y fecha, ejecuta reembolso Stripe, registra abandono y envía confirmación
 
     @Transactional
     public ReservaResponseDTO cancelarReserva(Long idReserva) {
@@ -273,6 +293,8 @@ public class ReservaService {
         return reservaMapper.toDto(guardada);
     }
 
+    // Método finalizarReserva: marca reserva como FINALIZADA (solo desde estado PAGADA)
+
     @Transactional
     public ReservaResponseDTO finalizarReserva(Long idReserva) {
         Reserva reserva = reservaRepo.findById(idReserva)
@@ -291,6 +313,8 @@ public class ReservaService {
 
         return reservaMapper.toDto(guardada);
     }
+
+    // Método ejecutarReembolsoStripe: crea reembolso en Stripe y registra intentos/éxitos/fallos en métricas
 
     private boolean ejecutarReembolsoStripe(String idPasarela, Double monto) {
         // MÉTRICA — cada reembolso también es un intento con Stripe
@@ -317,6 +341,8 @@ public class ReservaService {
             return false;
         }
     }
+
+    // Método enviarCorreoConfirmacion: envía email de confirmación con detalles de la reserva
 
     private void enviarCorreoConfirmacion(Reserva reserva, Double montoTotal) {
         emailService.enviarConfirmacionReserva(

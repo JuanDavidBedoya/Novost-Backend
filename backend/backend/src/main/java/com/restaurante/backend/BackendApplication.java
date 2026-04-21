@@ -7,6 +7,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 
 import com.restaurante.backend.config.JwtProperties;
 
+//Ejecuta la aplicación
+
 @SpringBootApplication
 @EnableConfigurationProperties(JwtProperties.class)
 @EnableScheduling

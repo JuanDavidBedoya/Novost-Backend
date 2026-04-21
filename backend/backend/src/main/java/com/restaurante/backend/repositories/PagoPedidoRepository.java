@@ -10,7 +10,11 @@ import java.util.Optional;
 
 public interface PagoPedidoRepository extends JpaRepository<PagoPedido, Long> {
 
+    //Encontrar pedidos 
+
     Optional<PagoPedido> findByPedido(Pedido pedido);
+
+    //Encontrar pedido por fecha de pago
 
     List<PagoPedido> findByFechaPagoBetween(LocalDateTime start, LocalDateTime end);
 }

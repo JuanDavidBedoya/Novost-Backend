@@ -12,8 +12,12 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+// Configuración de seguridad: codificación de contraseñas, autenticación y detalles de usuario
+
 @Configuration
 public class ApplicationConfig {
+
+    // Constructor: inyecta UsuarioRepository para acceder a datos de usuarios
 
     private final UsuarioRepository usuarioRepository;
 
@@ -21,10 +25,14 @@ public class ApplicationConfig {
         this.usuarioRepository = usuarioRepository;
     }
 
+    // Bean passwordEncoder: configura BCrypt para encriptar contraseñas
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
+
+    // Bean userDetailsService: carga usuario desde BD por email y mapea sus autoridades (rol)
 
     @Bean
     public UserDetailsService userDetailsService() {
@@ -37,6 +45,8 @@ public class ApplicationConfig {
                 .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado con email: " + username));
     }
 
+    // Bean authenticationProvider: configura proveedor DAO con userDetailsService y passwordEncoder
+
     @SuppressWarnings("deprecation")
     @Bean
     public AuthenticationProvider authenticationProvider() {
@@ -45,6 +55,8 @@ public class ApplicationConfig {
         authProvider.setPasswordEncoder(passwordEncoder());
         return authProvider;
     }
+
+    // Bean authenticationManager: expone gestor de autenticación para la aplicación
 
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {

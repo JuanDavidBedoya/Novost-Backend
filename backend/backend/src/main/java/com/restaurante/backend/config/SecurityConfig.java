@@ -17,9 +17,13 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+// Configuración de seguridad web: CORS, autenticación JWT y autorización de endpoints
+
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
+
+    // Constructor: inyecta filtro JWT y proveedor de autenticación
 
     private final JwtAuthFilter jwtAuthFilter;
     private final AuthenticationProvider authenticationProvider;
@@ -28,6 +32,8 @@ public class SecurityConfig {
         this.jwtAuthFilter = jwtAuthFilter;
         this.authenticationProvider = authenticationProvider;
     }
+
+    // Bean securityFilterChain: configura política de seguridad, endpoints públicos/privados y filtros JWT
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -57,6 +63,8 @@ public class SecurityConfig {
 
         return http.build();
     }
+
+    // Bean corsConfigurationSource: configura orígenes permitidos, métodos HTTP y headers CORS
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {

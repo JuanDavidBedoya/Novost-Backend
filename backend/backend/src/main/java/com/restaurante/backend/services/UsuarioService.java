@@ -17,13 +17,19 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+// Servicio de gestión de usuarios: perfil, contraseña y desactivación de cuenta
+
 @Service
 public class UsuarioService {
+
+    // Inyección de dependencias: repositorio, codificador, mapper y servicio de email
 
     private final UsuarioRepository usuarioRepository;
     private final PasswordEncoder passwordEncoder;
     private final UsuarioMapper usuarioMapper;
     private final EmailService emailService;
+
+    // Constante: marca de cuenta desactivada usado en tokenRecuperacion
 
     public static final String CUENTA_DESACTIVADA = "CUENTA_DESACTIVADA";
 
@@ -34,12 +40,16 @@ public class UsuarioService {
         this.emailService = emailService;
     }
 
+    // Método obtenerUsuario: obtiene datos de usuario por cédula
+
     @Transactional(readOnly = true)
     public UsuarioResponseDTO obtenerUsuario(String cedula) {
         Usuario usuario = usuarioRepository.findById(cedula)
                 .orElseThrow(() -> new RuntimeException("general:Usuario no encontrado"));
         return usuarioMapper.toUsuarioResponseDTO(usuario);
     }
+    
+    // Método actualizarPerfil: modifica nombre y teléfono del usuario
 
     @Transactional
     public UsuarioResponseDTO actualizarPerfil(String cedula, ActualizarPerfilDTO dto) {
@@ -52,6 +62,8 @@ public class UsuarioService {
         
         return usuarioMapper.toUsuarioResponseDTO(usuario);
     }
+
+    // Método cambiarContrasenia: valida contraseña actual e igual anterior, luego actualiza
 
     @Transactional
     public void cambiarContrasenia(String cedula, CambiarContrasenaDTO dto) {
@@ -76,6 +88,8 @@ public class UsuarioService {
                 .orElseThrow(() -> new RuntimeException("general:Usuario no encontrado"));
         return usuario.getCedula();
     }
+
+    // Método desactivarCuenta: verifica contraseña, anonimiza email con timestamp, marca como desactivada y invalida tokens
 
     @Transactional
     public void desactivarCuenta(DesactivarCuentaRequestDTO request) {

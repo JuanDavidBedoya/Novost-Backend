@@ -44,10 +44,10 @@ public class PedidoService {
     @Transactional
     public PedidoResponseDTO crearPedido(PedidoRequestDTO dto) {
 
-    // ✅ Registra el intento antes de cualquier lógica
+    // Registra el intento antes de cualquier lógica
     pedidoMetricaService.registrarIntento();
 
-    // ✅ Envuelve toda la lógica en el timer para medir duración
+    // Envuelve toda la lógica en el timer para medir duración
     return pedidoMetricaService.getTiempoTimer().record(() -> {
         try {
             LocalDate fechaActual = LocalDate.now();
@@ -138,13 +138,13 @@ public class PedidoService {
             pagoPedido.setEstadoPago("PENDIENTE");
             pagoPedidoRepo.save(pagoPedido);
 
-            // ✅ Solo se registra éxito si todo el bloque anterior completó sin errores
+            // Solo se registra éxito si todo el bloque anterior completó sin errores
             pedidoMetricaService.registrarExito();
 
             return pedidoMapper.toResponseDTO(pedidoGuardado);
 
         } catch (Exception e) {
-            // ✅ Registra el fallo y relanza la excepción para que Spring la maneje normalmente
+            // Registra el fallo y relanza la excepción para que Spring la maneje normalmente
             pedidoMetricaService.registrarFallo();
             throw e;
         }
@@ -223,7 +223,7 @@ public class PedidoService {
     // ── Llamado por el webhook cuando el pago en línea es confirmado ──────────
     @Transactional
         public void crearYConfirmarPedidoLinea(PedidoRequestDTO dto, String idPasarela) {
-        // ✅ crearPedido ya registra intento/exito/fallo, no se duplica aquí
+        // crearPedido ya registra intento/exito/fallo, no se duplica aquí
         PedidoResponseDTO pedidoDTO = crearPedido(dto);
 
         Pedido pedido = pedidoRepo.findById(pedidoDTO.getIdPedido())

@@ -18,15 +18,21 @@ import com.restaurante.backend.repositories.ReservaRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 
+    // Servicio para procesamiento de pagos: confirmación, actualización de reserva y envío de factura
+
 @Service
 @RequiredArgsConstructor
 public class PagoService {
+
+    // Inyección de dependencias: repositorios, mapper y servicio de email
 
     private final PagoRepository pagoRepo;
     private final ReservaRepository reservaRepo;
     private final EstadoReservaRepository estadoRepo;
     private final PagoMapper pagoMapper;
     private final EmailService emailService;
+
+// Método procesarConfirmacionPago: valida reserva, crea pago, actualiza estado a PAGADA y envía factura por email
 
     @Transactional
     public PagoResponseDTO procesarConfirmacionPago(PagoRequestDTO dto) {
