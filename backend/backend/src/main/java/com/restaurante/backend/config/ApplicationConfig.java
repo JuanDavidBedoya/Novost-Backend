@@ -1,6 +1,5 @@
 package com.restaurante.backend.config;
 
-import com.restaurante.backend.entities.Usuario;
 import com.restaurante.backend.entities.UserDetailsConCedula;
 import com.restaurante.backend.repositories.UsuarioRepository;
 import org.springframework.context.annotation.Bean;
