@@ -9,11 +9,17 @@ import com.restaurante.backend.repositories.UsuarioRepository;
 
 import lombok.RequiredArgsConstructor;
 
+// Mapper para convertir entre DTO y entidad Reserva
+
 @Component
 @RequiredArgsConstructor
 public class ReservaMapper {
 
+    // Inyección de dependencia: repositorio de usuarios para obtener datos del usuario
+
     private final UsuarioRepository usuarioRepo;
+
+    // Método toEntity: convierte ReservaRequestDTO a entidad Reserva, obtiene usuario y asigna datos básicos
 
     public Reserva toEntity(ReservaRequestDTO dto) {
         if (dto == null) return null;
@@ -25,6 +31,8 @@ public class ReservaMapper {
         reserva.setNumPersonas(dto.getNumPersonas());
         return reserva;
     }
+
+    // Método toResponseDTO: transforma entidad Reserva en ReservaResponseDTO mapeando usuario, mesa, fechas y estado
 
     public ReservaResponseDTO toResponseDTO(Reserva reserva) {
         if (reserva == null) return null;
@@ -64,6 +72,8 @@ public class ReservaMapper {
         
         return dto;
     }
+
+    // Método toDto: convierte entidad Reserva a ReservaResponseDTO (similar a toResponseDTO, probablemente redundante)
 
     public ReservaResponseDTO toDto(Reserva reserva) {
         if (reserva == null) return null;

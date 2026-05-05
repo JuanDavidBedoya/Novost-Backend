@@ -7,8 +7,12 @@ import org.springframework.stereotype.Service;
 
 import java.util.concurrent.atomic.AtomicLong;
 
+// Servicio de métricas para monitorear alertas de stock mínimo (RNF-08: confiabilidad)
+
 @Service
 public class StockAlertaMetricaService {
+
+    // Atributos: contadores para intentadas, exitosas y fallidas, y referencias atómicas para cálculo de eficacia
 
     private final Counter alertasIntentadasTotal;
     private final Counter alertasExitosasTotal;
@@ -17,6 +21,8 @@ public class StockAlertaMetricaService {
     // Gauge: eficacia en % (se recalcula solo en cada scrape)
     private final AtomicLong intentadas = new AtomicLong(0);
     private final AtomicLong exitosas   = new AtomicLong(0);
+
+    // Constructor: inicializa contadores y gauge de eficacia (exitosas/intentadas*100) en el registry
 
     public StockAlertaMetricaService(MeterRegistry registry) {
 
@@ -51,6 +57,8 @@ public class StockAlertaMetricaService {
                 .register(registry);
     }
 
+    // Métodos de registro: incrementan contadores de intentadas, exitosas y fallidas
+
     public void registrarIntento() {
         alertasIntentadasTotal.increment();
         intentadas.incrementAndGet();
@@ -64,6 +72,8 @@ public class StockAlertaMetricaService {
     public void registrarFallo() {
         alertasFallidasTotal.increment();
     }
+
+    // Métodos getter: retornan intentadas, exitosas y porcentaje de eficacia (100% si sin eventos)
 
     public long getIntentadas() { return intentadas.get(); }
     public long getExitosas()   { return exitosas.get(); }

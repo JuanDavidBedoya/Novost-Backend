@@ -27,15 +27,21 @@ import com.restaurante.backend.services.UsuarioService;
 
 import lombok.RequiredArgsConstructor;
 
+// Controlador REST para gestión de reservas: búsqueda, creación, pago y cancelación
+
 @RestController
 @RequestMapping("/reservas")
 @RequiredArgsConstructor
 public class ReservaController {
 
+    // Inyección de dependencias: servicios de reserva, usuario, auditoría y métricas
+
     private final ReservaService reservaService;
     private final UsuarioService usuarioService;
     private final AuditService auditService;
     private final DisponibilidadMetricaService disponibilidadMetricaService;
+
+    // GET /buscar: obtiene reservas del usuario autenticado con filtros opcionales (fecha, hora, personas)
 
     @GetMapping("/buscar")
     public ResponseEntity<List<ReservaResponseDTO>> buscar(
@@ -51,6 +57,8 @@ public class ReservaController {
         List<ReservaResponseDTO> reservas = reservaService.buscarReservasPorUsuarioConFiltros(cedulaUsuarioLogeado, fecha, hora, personas);
         return ResponseEntity.ok(reservas);
     }
+
+    // POST /: crea nueva reserva validando que el usuario no reserve para otros y registra en auditoría
 
     @PostMapping
     public ResponseEntity<ReservaResponseDTO> reservar(@RequestBody ReservaRequestDTO reservaRequest) {
@@ -74,6 +82,8 @@ public class ReservaController {
         return ResponseEntity.ok(nuevaReserva);
     }
 
+    // POST /{id}/confirmar-pago: procesa pago de reserva y registra cambio de estado en auditoría
+
     @PostMapping("/{id}/confirmar-pago")
     public ResponseEntity<PagoResponseDTO> confirmar(
             @PathVariable Long id, 
@@ -92,6 +102,8 @@ public class ReservaController {
         return ResponseEntity.ok(pagoRealizado);
     }
 
+    // POST /{id}/cancelar: cancela reserva y registra acción en auditoría
+
     @PostMapping("/{id}/cancelar")
     public ResponseEntity<ReservaResponseDTO> cancelarReserva(@PathVariable Long id) {
         ReservaResponseDTO response = reservaService.cancelarReserva(id);
@@ -102,6 +114,8 @@ public class ReservaController {
         
         return ResponseEntity.ok(response);
     }
+
+    // POST /{id}/finalizar: marca reserva como finalizada y registra en auditoría
 
     @PostMapping("/{id}/finalizar")
     public ResponseEntity<ReservaResponseDTO> finalizarReserva(@PathVariable Long id) {
@@ -114,6 +128,8 @@ public class ReservaController {
         return ResponseEntity.ok(response);
     }
 
+    // GET /todas: obtiene todas las reservas (sin filtro de usuario) para administradores/trabajadores
+
     @GetMapping("/todas")
     public ResponseEntity<List<ReservaResponseDTO>> buscarTodasLasReservas(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha,
@@ -123,6 +139,8 @@ public class ReservaController {
         List<ReservaResponseDTO> reservas = reservaService.buscarReservas(fecha, hora, personas);
         return ResponseEntity.ok(reservas);
     }
+
+    // GET /disponibilidad: calcula mesas disponibles según criterios, registra consulta y errores en métricas
 
     @GetMapping("/disponibilidad")
     public ResponseEntity<Integer> obtenerMesasDisponibles(

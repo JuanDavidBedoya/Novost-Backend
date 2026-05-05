@@ -4,8 +4,12 @@ import com.restaurante.backend.dtos.PedidoResponseDTO;
 import com.restaurante.backend.entities.Pedido;
 import org.springframework.stereotype.Component;
 
+// Mapper para convertir entidad Pedido a DTO de respuesta
+
 @Component
 public class PedidoMapper {
+
+    // Método toResponseDTO: transforma entidad Pedido en PedidoResponseDTO mapeando datos básicos, mesa, reserva, montos y estado
 
     public PedidoResponseDTO toResponseDTO(Pedido pedido) {
         if (pedido == null) return null;

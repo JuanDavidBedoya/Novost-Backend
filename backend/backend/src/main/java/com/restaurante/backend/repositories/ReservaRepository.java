@@ -15,6 +15,8 @@ import jakarta.persistence.LockModeType;
 
 public interface ReservaRepository extends JpaRepository<Reserva, Long> {
 
+    // Query findOverlappingReservations: encuentra reservas solapadas en una mesa, fecha y rango horario (con bloqueo de escritura)
+
     @Lock(LockModeType.PESSIMISTIC_WRITE) 
     @Query("SELECT r FROM Reserva r WHERE r.mesa.idMesa = :idMesa " +
         "AND r.fecha = :fecha " +
@@ -27,6 +29,8 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
         @Param("fin") LocalTime fin
     );
 
+    // Query findReservasVencidas: obtiene reservas pendientes sin pago cuya fecha/hora ya pasó
+
     @Query("SELECT r FROM Reserva r WHERE r.estadoReserva.nombre = 'PENDIENTE' " +
        "AND (" +
        "  r.fecha < :fechaReferencia " + 
@@ -38,6 +42,8 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
         @Param("horaReferencia") LocalTime horaReferencia
     );
 
+    // Query findReservasParaRecordatorio: obtiene reservas pagadas en rango horario específico para enviar recordatorios
+
     @Query("SELECT r FROM Reserva r WHERE r.fecha = :fecha " +
        "AND r.horaInicio >= :horaInicio " +
        "AND r.horaInicio < :horaFin " +
@@ -47,6 +53,8 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
         @Param("horaInicio") LocalTime horaInicio, 
         @Param("horaFin") LocalTime horaFin
     );
+
+    // Query buscarConFiltros: busca reservas no canceladas con filtros opcionales (fecha, hora, personas)
 
     @Query("SELECT r FROM Reserva r WHERE r.estadoReserva.nombre <> 'CANCELADA' AND " +
            "(:fecha IS NULL OR r.fecha = :fecha) AND " +
@@ -58,6 +66,8 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
         @Param("personas") Integer personas
     );
 
+    // Query buscarTodasConFiltros: busca todas las reservas con filtros opcionales sin excluir canceladas
+
     @Query("SELECT r FROM Reserva r WHERE " +
            "(:fecha IS NULL OR r.fecha = :fecha) AND " +
            "(:hora IS NULL OR r.horaInicio = :hora) AND " +
@@ -68,11 +78,17 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
         @Param("personas") Integer personas
     );
 
+    // Query buscarReservasPorFecha: obtiene reservas no canceladas de una fecha específica
+
     @Query("SELECT r FROM Reserva r WHERE r.estadoReserva.nombre <> 'CANCELADA' AND r.fecha = :fecha")
     List<Reserva> buscarReservasPorFecha(@Param("fecha") LocalDate fecha);
 
+    // Query findByUsuarioCedula: obtiene todas las reservas de un usuario por cédula
+
     @Query("SELECT r FROM Reserva r WHERE r.usuario.cedula = :cedula")
     List<Reserva> findByUsuarioCedula(@Param("cedula") String cedula);
+
+    // Query buscarPorUsuarioConFiltros: obtiene reservas de usuario con filtros opcionales (fecha, hora, personas)
 
     @Query("SELECT r FROM Reserva r WHERE r.usuario.cedula = :cedula AND " +
            "(:fecha IS NULL OR r.fecha = :fecha) AND " +
@@ -85,6 +101,8 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
         @Param("personas") Integer personas
     );
 
+    // Query buscarTodasPorUsuarioConFiltros: obtiene todas las reservas de usuario con filtros sin excluir canceladas
+
     @Query("SELECT r FROM Reserva r WHERE r.usuario.cedula = :cedula AND " +
            "(:fecha IS NULL OR r.fecha = :fecha) AND " +
            "(:hora IS NULL OR r.horaInicio = :hora) AND " +
@@ -95,6 +113,8 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
         @Param("hora") LocalTime hora, 
         @Param("personas") Integer personas
     );
+
+    // Query findReservaActivaPorMesaYHora: obtiene reserva finalizada activa en mesa a hora específica
 
     @Query("SELECT r FROM Reserva r WHERE r.mesa.idMesa = :idMesa " +
        "AND r.fecha = :fecha " +
@@ -107,11 +127,15 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
         @Param("fecha") LocalDate fecha, 
         @Param("horaActual") LocalTime horaActual
     );
+
+    // Query countByFecha: cuenta reservas pagadas en una fecha específica
  
     @Query("SELECT COUNT(r) FROM Reserva r " +
            "WHERE r.fecha = :fecha " +
            "AND r.estadoReserva.nombre = 'PAGADA'")
     Long countByFecha(@Param("fecha") LocalDate fecha);
+
+    // Query countByFechaBetween: cuenta reservas pagadas en rango de fechas
  
     @Query("SELECT COUNT(r) FROM Reserva r " +
            "WHERE r.fecha BETWEEN :inicio AND :fin " +

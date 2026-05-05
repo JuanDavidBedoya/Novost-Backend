@@ -19,17 +19,23 @@ public class DashboardController {
 
     private final DashboardService dashboardService;
 
+    //Dashboard para el apartado de finanzas
+
     @GetMapping("/finanzas")
     public ResponseEntity<DashboardFinancieroDTO> obtenerFinanzas() {
         DashboardFinancieroDTO datos = dashboardService.obtenerDatosFinancieros();
         return ResponseEntity.ok(datos);
     }
 
+    //Dashboard para el apartado de platos
+
     @GetMapping("/platos")
     public ResponseEntity<DashboardPlatosDTO> obtenerPlatos() {
         DashboardPlatosDTO datos = dashboardService.obtenerDatosPlatos();
         return ResponseEntity.ok(datos);
     }
+
+    //Dashboard para el apartado de clientes
 
     @GetMapping("/clientes")
     public ResponseEntity<DashboardClientesDTO> obtenerClientes() {

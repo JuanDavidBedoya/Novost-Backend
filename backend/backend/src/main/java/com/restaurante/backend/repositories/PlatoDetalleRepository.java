@@ -7,6 +7,12 @@ import java.util.List;
 import java.util.Set;
 
 public interface PlatoDetalleRepository extends JpaRepository<PlatoDetalle, Long> {
+
+    // Método findByPlato: obtiene todos los ingredientes de un plato
+
     List<PlatoDetalle> findByPlato(Plato plato);
+
+    // Método findByInventarioIdAlimentoIn: obtiene detalles de platos que usan ciertos alimentos
+    
     List<PlatoDetalle> findByInventarioIdAlimentoIn(Set<Long> idsAlimento); 
 }

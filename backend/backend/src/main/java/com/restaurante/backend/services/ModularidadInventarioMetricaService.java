@@ -13,9 +13,13 @@ import java.util.concurrent.atomic.AtomicReference;
 @Service
 public class ModularidadInventarioMetricaService {
 
+    // Servicio de métricas para monitorear actualizaciones de inventario (RNF-16: desempeño)
+
     private final Timer tiempoActualizacion;
     private final Counter actualizacionesTotal;
     private final Counter actualizacionesLentasTotal; // superan 300ms
+
+    // Atributos: timers, contadores y referencias atómicas para registrar métricas de actualización
 
     private final AtomicLong totalActualizaciones  = new AtomicLong(0);
     private final AtomicLong actualizacionesLentas = new AtomicLong(0);
@@ -64,6 +68,8 @@ public class ModularidadInventarioMetricaService {
                 .register(registry);
     }
 
+    // Método registrarActualizacion: registra duración de actualización, incrementa contadores y detecta actualizaciones lentas (>300ms)
+
     public void registrarActualizacion(long duracionMs) {
         tiempoActualizacion.record(duracionMs, TimeUnit.MILLISECONDS);
 
@@ -77,6 +83,8 @@ public class ModularidadInventarioMetricaService {
             actualizacionesLentas.incrementAndGet();
         }
     }
+
+    // Métodos getter: retornan totales, lentas, peor tiempo, promedio en ms y tasa de lentas (porcentaje)
 
     public long   getTotalActualizaciones()  { return totalActualizaciones.get(); }
     public long   getActualizacionesLentas() { return actualizacionesLentas.get(); }

@@ -17,13 +17,19 @@ import com.restaurante.backend.services.EmailService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 
+// Componente de tareas programadas para gestionar recordatorios de reservas y cancelación automática
+
 @Component
 @RequiredArgsConstructor
 public class ReservaTask {
 
+    // Inyección de dependencias: repositorios y servicio de email
+
     private final ReservaRepository reservaRepo;
     private final EstadoReservaRepository estadoRepo;
     private final EmailService emailService;
+
+    // Método enviarRecordatorios12Horas: tarea ejecutada cada hora que busca reservas en próximas 12 horas y envía recordatorios por email
 
     @Scheduled(cron = "0 0 * * * *")
     public void enviarRecordatorios12Horas() {
@@ -44,6 +50,8 @@ public class ReservaTask {
             );
         });
     }
+
+    // Método cancelarReservasNoPagadas: tarea ejecutada cada hora que cancela automáticamente reservas no pagadas después de 24 horas
 
     @Scheduled(cron = "0 0 * * * *")
     @Transactional

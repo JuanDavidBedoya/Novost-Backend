@@ -11,7 +11,11 @@ import java.util.List;
 
 public interface PedidoDetalleRepository extends JpaRepository<PedidoDetalle, Long> {
 
+  // Método findByPedido: obtiene todos los detalles asociados a un pedido
+
     List<PedidoDetalle> findByPedido(Pedido pedido);
+
+    // Query ventasPorPlatoEnFecha: agrupa ventas por plato en una fecha (solo pedidos pagados/entregados) ordenados por cantidad
 
     @Query("""
             SELECT
@@ -25,6 +29,8 @@ public interface PedidoDetalleRepository extends JpaRepository<PedidoDetalle, Lo
             ORDER BY SUM(pd.cantidad) DESC
             """)
     List<Object[]> ventasPorPlatoEnFecha(@Param("fecha") LocalDate fecha);
+
+    // Query ventasPorCategoriaEnFecha: agrupa ventas por categoría en una fecha (solo pedidos pagados/entregados) ordenados por cantidad
 
     @Query("""
             SELECT

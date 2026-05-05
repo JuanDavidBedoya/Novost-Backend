@@ -4,12 +4,18 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.stereotype.Service;
 
+// Servicio de métricas para monitorear comunicación con Stripe (RNF-02: fiabilidad)
+
 @Service
 public class StripeMetricaService {
+
+// Atributos: contadores para intentos, éxitos y fallos técnicos
 
     private final Counter intentosTotal;
     private final Counter exitosTotal;
     private final Counter fallosTecnicosTotal;
+
+    // Constructor: inicializa contadores en el registry con tags de RNF-02 y proceso de pago
 
     public StripeMetricaService(MeterRegistry registry) {
 
@@ -32,9 +38,13 @@ public class StripeMetricaService {
                 .register(registry);
     }
 
+    // Métodos de registro: incrementan contadores de intentos, éxitos y fallos técnicos
+
     public void registrarIntento()       { intentosTotal.increment(); }
     public void registrarExito()         { exitosTotal.increment(); }
     public void registrarFalloTecnico()  { fallosTecnicosTotal.increment(); }
+
+    // Métodos getter: retornan valores totales de intentos, éxitos y fallos técnicos
 
     public double getIntentos()      { return intentosTotal.count(); }
     public double getExitos()        { return exitosTotal.count(); }

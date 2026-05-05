@@ -39,6 +39,8 @@ public class AuthService {
     private final EmailService emailService;
     private final AuditService auditService ;
 
+    // Inyección de dependencias: repositorios, codificador, JWT, email y mapper
+
     public AuthService(UsuarioRepository usuarioRepository, RolRepository rolRepository, 
                         PasswordEncoder passwordEncoder, JwtService jwtService, 
                         EmailService emailService, UsuarioMapper usuarioMapper, AuditService auditService) {
@@ -51,15 +53,17 @@ public class AuthService {
         this.auditService = auditService;
     }
 
+    // Valor inyectado: clave secreta de reCAPTCHA desde propiedades
+
     @Value("${google.recaptcha.secret}")
     private String recaptchaSecret;
 
-    @Transactional
+   @Transactional
     public void iniciarLogin(LoginRequestDTO request) {
         Usuario usuario = usuarioRepository.findByEmail(request.email())
                 .orElseThrow(() -> new RuntimeException("password:Datos incorrectos"));
 
-        // ✅ Bloquea el login si la cuenta está desactivada
+        // Bloquea el login si la cuenta está desactivada
         if (UsuarioService.CUENTA_DESACTIVADA.equals(usuario.getTokenRecuperacion())) {
             throw new RuntimeException("password:Esta cuenta ha sido dada de baja.");
         }
@@ -88,6 +92,8 @@ public class AuthService {
 
         emailService.enviarCodigoVerificacion(usuario.getEmail(), usuario.getNombre(), codigo2FA);
     }
+
+    // Método verificarCodigo: valida código 2FA, genera token JWT y retorna usuario autenticado
 
     @Transactional
     public AuthResponseDTO verificarCodigo(VerifyCodeDTO request) {
@@ -134,11 +140,14 @@ public class AuthService {
         return new AuthResponseDTO(token, dto);
     }
 
+    // Método registrar: valida reCAPTCHA y duplicados, crea usuario cliente con rol asignado
+
+
     @Transactional
     public UsuarioResponseDTO registrar(RegistroUsuarioDTO request) {
         verificarCaptcha(request.captchaToken());
 
-        // ✅ Si la cédula ya existe — activa o desactivada — siempre es duplicado
+        // Si la cédula ya existe — activa o desactivada — siempre es duplicado
         // Se elimina completamente el bloque de reactivación
         if (usuarioRepository.existsById(request.cedula())) {
             throw new RuntimeException("cedula:Cédula duplicada");
@@ -180,6 +189,8 @@ public class AuthService {
         
         return usuarioMapper.toUsuarioResponseDTO(nuevoUsuario);
     }
+
+    // Método registrarTrabajador: crea usuario trabajador con rol específico y envía credenciales por email
 
     @Transactional
     public UsuarioResponseDTO registrarTrabajador(RegistroUsuarioDTO request) {
@@ -224,6 +235,8 @@ public class AuthService {
         return usuarioMapper.toUsuarioResponseDTO(nuevoTrabajador);
     }
 
+    // Método solicitarRecuperacionPassword: genera token de recuperación y envía enlace por email (válido 5 minutos)
+
     @Transactional
     public void solicitarRecuperacionPassword(String email) {
         Usuario usuario = usuarioRepository.findByEmail(email)
@@ -253,6 +266,8 @@ public class AuthService {
 
         emailService.enviarRecuperacionPassword(usuario.getEmail(), usuario.getNombre(), link);
     }
+
+    // Método restaurarPassword: valida token y plazo, verifica contraseña no sea igual a la anterior y actualiza
 
     @Transactional
     public void restaurarPassword(String token, String nuevaContrasenia) {
@@ -286,6 +301,8 @@ public class AuthService {
             System.err.println("Error al registrar log de auditoría para restauración de password: " + e.getMessage());
         }
     }
+
+    // Método verificarCaptcha: valida respuesta de reCAPTCHA con Google y lanza excepción si falla
 
     private void verificarCaptcha(String captchaResponse) {
         String url = "https://www.google.com/recaptcha/api/siteverify";
