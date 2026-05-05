@@ -24,6 +24,7 @@ public class ProductoIndividualService {
     private final InventarioRepository inventarioRepository;
     private final ProductoIndividualMapper mapper;
     private final AuditService auditService;
+    private final AdaptabilidadInventarioMetricaService adaptabilidadMetricaService;
 
     @Transactional
     public ProductoIndividualDTO registrarEntradaCompra(EntradaCompraRequestDTO request) {
@@ -42,6 +43,10 @@ public class ProductoIndividualService {
         producto.setCedulaTrabajador(request.getCedulaTrabajador());
 
         ProductoIndividual saved = productoIndividualRepository.save(producto);
+
+        adaptabilidadMetricaService.registrarProductoCreado(
+            inventario.getTipoMedida().name()
+        );
 
         inventario.setStockActual(inventario.getStockActual() + request.getCantidad());
         inventarioRepository.save(inventario);
