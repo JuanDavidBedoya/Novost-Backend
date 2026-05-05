@@ -1,10 +1,8 @@
 package com.restaurante.backend.controllers;
 
-import com.restaurante.backend.dtos.InventarioDashboardDTO;
-import com.restaurante.backend.dtos.InventarioRequestDTO;
-import com.restaurante.backend.dtos.InventarioResponseDTO;
+import com.restaurante.backend.dtos.*;
+import com.restaurante.backend.services.*;
 import com.restaurante.backend.services.AuditService;
-import com.restaurante.backend.services.InventarioService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -21,8 +19,79 @@ import java.util.Map;
 public class InventarioController {
 
     private final InventarioService inventarioService;
+    private final TipoProductoService tipoProductoService;
+    private final ProductoIndividualService productoIndividualService;
     private final AuditService auditService;
 
+    // === TIPOS DE PRODUCTO ===
+    
+    @GetMapping("/tipos")
+    public ResponseEntity<List<TipoProductoDTO>> obtenerTiposProducto() {
+        return ResponseEntity.ok(tipoProductoService.obtenerTodos());
+    }
+
+    @PostMapping("/tipos")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<TipoProductoDTO> crearTipoProducto(@Valid @RequestBody TipoProductoDTO request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(tipoProductoService.crearTipo(request));
+    }
+
+    @PutMapping("/tipos/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<TipoProductoDTO> actualizarTipoProducto(
+            @PathVariable Long id,
+            @Valid @RequestBody TipoProductoDTO request) {
+        return ResponseEntity.ok(tipoProductoService.actualizarTipo(id, request));
+    }
+
+    @DeleteMapping("/tipos/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> eliminarTipoProducto(@PathVariable Long id) {
+        tipoProductoService.eliminarTipo(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    // === PRODUCTOS POR TIPO ===
+    
+    @GetMapping("/tipos/{idTipo}/productos")
+    public ResponseEntity<List<InventarioResponseDTO>> obtenerProductosPorTipo(@PathVariable Long idTipo) {
+        return ResponseEntity.ok(inventarioService.obtenerPorTipo(idTipo));
+    }
+
+    // === PRODUCTOS INDIVIDUALES ===
+    
+    @PostMapping("/entradas")
+    @PreAuthorize("hasAnyRole('ADMIN', 'EMPLEADO')")
+    public ResponseEntity<ProductoIndividualDTO> registrarEntradaCompra(
+            @Valid @RequestBody EntradaCompraRequestDTO request) {
+        
+        ProductoIndividualDTO nuevo = productoIndividualService.registrarEntradaCompra(request);
+        
+        auditService.logCreacion(AuditService.ENTIDAD_INVENTARIO, nuevo.getIdProducto(), 
+            "Entrada de compra: " + request.getIdAlimento());
+        
+        return ResponseEntity.status(HttpStatus.CREATED).body(nuevo);
+    }
+
+    @GetMapping("/productos/{idAlimento}/individuales")
+    public ResponseEntity<List<ProductoIndividualDTO>> obtenerProductosIndividuales(
+            @PathVariable Long idAlimento) {
+        return ResponseEntity.ok(productoIndividualService.obtenerProductosPorAlimento(idAlimento));
+    }
+
+    @GetMapping("/alertas/vencimiento")
+    public ResponseEntity<List<ProductoIndividualDTO>> obtenerAlertasVencimiento(
+            @RequestParam(defaultValue = "30") int dias) {
+        return ResponseEntity.ok(productoIndividualService.obtenerProductosProximosAVencer(dias));
+    }
+
+    @GetMapping("/alertas/vencidos")
+    public ResponseEntity<List<ProductoIndividualDTO>> obtenerProductosVencidos() {
+        return ResponseEntity.ok(productoIndividualService.obtenerProductosVencidos());
+    }
+
+    // === ENDPOINTS EXISTENTES ===
+    
     // Obtener todos los productos del inventario
     @GetMapping
     public ResponseEntity<List<InventarioResponseDTO>> obtenerTodos() {
@@ -127,6 +196,13 @@ public class InventarioController {
             "Quitar stock del producto", null, "cantidad quitada: " + cantidad);
         
         return ResponseEntity.ok(actualizado);
+    }
+
+    @DeleteMapping("/productos/individuales/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'EMPLEADO')")
+    public ResponseEntity<Void> eliminarProductoIndividual(@PathVariable Long id) {
+        productoIndividualService.eliminarProductoIndividual(id);
+        return ResponseEntity.noContent().build();
     }
 
     // Reiniciar consumo del día (endpoint para cron job)

@@ -37,22 +37,24 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final EmailService emailService;
+    private final AuditService auditService ;
 
     public AuthService(UsuarioRepository usuarioRepository, RolRepository rolRepository, 
-                       PasswordEncoder passwordEncoder, JwtService jwtService, 
-                       EmailService emailService, UsuarioMapper usuarioMapper) {
+                        PasswordEncoder passwordEncoder, JwtService jwtService, 
+                        EmailService emailService, UsuarioMapper usuarioMapper, AuditService auditService) {
         this.usuarioRepository = usuarioRepository;
         this.rolRepository = rolRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.emailService = emailService;
         this.usuarioMapper = usuarioMapper;
+        this.auditService = auditService;
     }
 
     @Value("${google.recaptcha.secret}")
     private String recaptchaSecret;
 
-   @Transactional
+    @Transactional
     public void iniciarLogin(LoginRequestDTO request) {
         Usuario usuario = usuarioRepository.findByEmail(request.email())
                 .orElseThrow(() -> new RuntimeException("password:Datos incorrectos"));
@@ -63,6 +65,19 @@ public class AuthService {
         }
 
         if (!passwordEncoder.matches(request.password(), usuario.getContrasenia())) {
+            // Log de auditoría: intento de login fallido (password incorrecto)
+            try {
+                auditService.registrar(
+                    AuditService.ACCION_ERROR,
+                    AuditService.ENTIDAD_AUTENTICACION,
+                    null,
+                    "Intento de login fallido - Password incorrecto",
+                    null,
+                    "Email: " + request.email() + ", Cedula: " + usuario.getCedula()
+                );
+            } catch (Exception e) {
+                System.err.println("Error al registrar log de auditoría para login fallido: " + e.getMessage());
+            }
             throw new RuntimeException("password:Datos incorrectos");
         }
 
@@ -101,6 +116,20 @@ public class AuthService {
 
         String token = jwtService.generateToken(userDetails);
         UsuarioResponseDTO dto = usuarioMapper.toUsuarioResponseDTO(usuario);
+
+        // Log de auditoría: login exitoso
+        try {
+            auditService.registrar(
+                AuditService.ACCION_LOGIN,
+                AuditService.ENTIDAD_AUTENTICACION,
+                null,
+                "Login exitoso - Usuario: " + usuario.getEmail(),
+                null,
+                "Cedula: " + usuario.getCedula() + ", Rol: " + usuario.getRol().getNombre()
+            );
+        } catch (Exception e) {
+            System.err.println("Error al registrar log de auditoría para login: " + e.getMessage());
+        }
         
         return new AuthResponseDTO(token, dto);
     }
@@ -130,10 +159,25 @@ public class AuthService {
         nuevoUsuario.setContrasenia(passwordEncoder.encode(request.contrasena()));
         nuevoUsuario.setRol(rolUsuario);
 
-        usuarioRepository.save(nuevoUsuario);
+         usuarioRepository.save(nuevoUsuario);
 
         emailService.enviarBienvenidaUsuario(nuevoUsuario.getEmail(), nuevoUsuario.getNombre());
 
+        // Log de auditoría: registro de nuevo usuario
+        try {
+            auditService.registrar(
+                AuditService.ACCION_CREAR,
+                AuditService.ENTIDAD_USUARIO,
+                null,
+                "Registro de nuevo usuario: " + nuevoUsuario.getEmail(),
+                null,
+                "Cedula: " + nuevoUsuario.getCedula() + ", Nombre: " + nuevoUsuario.getNombre() + 
+                ", Telefono: " + nuevoUsuario.getTelefono() + ", Rol: " + nuevoUsuario.getRol().getNombre()
+            );
+        } catch (Exception e) {
+            System.err.println("Error al registrar log de auditoría para registro: " + e.getMessage());
+        }
+        
         return usuarioMapper.toUsuarioResponseDTO(nuevoUsuario);
     }
 
@@ -158,10 +202,24 @@ public class AuthService {
         nuevoTrabajador.setContrasenia(passwordEncoder.encode(request.contrasena()));
         nuevoTrabajador.setRol(rolTrabajador);
 
-        usuarioRepository.save(nuevoTrabajador);
-
+         usuarioRepository.save(nuevoTrabajador);
 
         emailService.enviarBienvenidaTrabajador(nuevoTrabajador.getEmail(), nuevoTrabajador.getNombre(), request.contrasena());
+        
+        // Log de auditoría: registro de nuevo trabajador
+        try {
+            auditService.registrar(
+                AuditService.ACCION_CREAR,
+                AuditService.ENTIDAD_USUARIO,
+                null,
+                "Registro de nuevo trabajador: " + nuevoTrabajador.getEmail(),
+                null,
+                "Cedula: " + nuevoTrabajador.getCedula() + ", Nombre: " + nuevoTrabajador.getNombre() + 
+                ", Telefono: " + nuevoTrabajador.getTelefono() + ", Rol: " + nuevoTrabajador.getRol().getNombre()
+            );
+        } catch (Exception e) {
+            System.err.println("Error al registrar log de auditoría para registro de trabajador: " + e.getMessage());
+        }
 
         return usuarioMapper.toUsuarioResponseDTO(nuevoTrabajador);
     }
@@ -173,11 +231,25 @@ public class AuthService {
 
         String token = UUID.randomUUID().toString();
         usuario.setTokenRecuperacion(token);
-        usuario.setExpiracionCodigo(LocalDateTime.now().plusMinutes(5)); 
+         usuario.setExpiracionCodigo(LocalDateTime.now().plusMinutes(5)); 
         usuarioRepository.save(usuario);
 
-        String link = "https://frontend-app-967697766235.us-central1.run.app/restaurar-password?token=" + token;
-        //String link = "http://localhost:5173/restaurar-password?token=" + token;
+        // Log de auditoría: solicitud de recuperación de password
+        try {
+            auditService.registrar(
+                AuditService.ACCION_ERROR,
+                AuditService.ENTIDAD_AUTENTICACION,
+                null,
+                "Solicitud de recuperación de contraseña",
+                null,
+                "Email: " + usuario.getEmail() + ", Cedula: " + usuario.getCedula()
+            );
+        } catch (Exception e) {
+            System.err.println("Error al registrar log de auditoría para recuperación de password: " + e.getMessage());
+        }
+
+        //String link = "https://frontend-app-967697766235.us-central1.run.app/restaurar-password?token=" + token;
+        String link = "http://localhost:5173/restaurar-password?token=" + token;
 
         emailService.enviarRecuperacionPassword(usuario.getEmail(), usuario.getNombre(), link);
     }
@@ -199,6 +271,20 @@ public class AuthService {
         usuario.setTokenRecuperacion(null);
         usuario.setExpiracionCodigo(null);
         usuarioRepository.save(usuario);
+
+        // Log de auditoría: restauración de contraseña
+        try {
+            auditService.registrar(
+                AuditService.ACCION_ACTUALIZAR,
+                AuditService.ENTIDAD_AUTENTICACION,
+                null,
+                "Restauración de contraseña exitosa",
+                null,
+                "Cedula: " + usuario.getCedula() + ", Email: " + usuario.getEmail()
+            );
+        } catch (Exception e) {
+            System.err.println("Error al registrar log de auditoría para restauración de password: " + e.getMessage());
+        }
     }
 
     private void verificarCaptcha(String captchaResponse) {

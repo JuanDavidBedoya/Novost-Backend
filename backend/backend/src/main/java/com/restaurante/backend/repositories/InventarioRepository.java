@@ -48,4 +48,12 @@ public interface InventarioRepository extends JpaRepository<Inventario, Long> {
     // Sumar consumo del día
     @Query("SELECT COALESCE(SUM(i.consumoHoy), 0) FROM Inventario i")
     Double sumConsumoHoy();
+
+    // Productos por tipo de producto
+    @Query("SELECT i FROM Inventario i WHERE i.tipoProducto.idTipo = :idTipo")
+    List<Inventario> findByTipoProducto(@Param("idTipo") Long idTipo);
+
+    // Productos agrupados por tipo de producto
+    @Query("SELECT DISTINCT i.tipoProducto FROM Inventario i WHERE i.tipoProducto IS NOT NULL")
+    List<Inventario> findDistinctTipoProducto();
 }

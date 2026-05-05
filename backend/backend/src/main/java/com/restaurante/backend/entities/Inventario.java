@@ -40,6 +40,10 @@ public class Inventario {
     @Column(name = "fecha_actualizacion")
     private LocalDate fechaActualizacion;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_tipo")
+    private TipoProducto tipoProducto;
+
     public enum TipoMedida {
         KILO,
         LITRO,

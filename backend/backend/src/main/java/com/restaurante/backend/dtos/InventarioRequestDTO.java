@@ -19,11 +19,11 @@ public class InventarioRequestDTO {
     @NotNull(message = "El tipo de medida es requerido")
     private TipoMedida tipoMedida;
 
-    @NotNull(message = "El stock actual es requerido")
-    @Positive(message = "El stock actual debe ser positivo")
-    private Double stockActual;
-
     @NotNull(message = "El stock mínimo es requerido")
     @Positive(message = "El stock mínimo debe ser positivo")
     private Double stockMinimo;
+
+    private Long idTipo;
+    
+    private Double stockActual;
 }

@@ -5,10 +5,12 @@ import com.restaurante.backend.dtos.InventarioRequestDTO;
 import com.restaurante.backend.dtos.InventarioResponseDTO;
 import com.restaurante.backend.entities.Inventario;
 import com.restaurante.backend.entities.Inventario.TipoMedida;
+import com.restaurante.backend.entities.TipoProducto;
 import com.restaurante.backend.exceptions.ResourceNotFoundException;
 import com.restaurante.backend.exceptions.ValidationException;
 import com.restaurante.backend.mappers.InventarioMapper;
 import com.restaurante.backend.repositories.InventarioRepository;
+import com.restaurante.backend.repositories.TipoProductoRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,17 +30,42 @@ public class InventarioService {
     private final IntegridadStockMetricaService integridadStockMetricaService;
     private final ModularidadInventarioMetricaService modularidadMetricaService;
     private final AdaptabilidadInventarioMetricaService adaptabilidadMetricaService;
+    private final TipoProductoRepository tipoProductoRepository;
+    private final AuditService auditService;
 
     // Crear nuevo producto en inventario
     @Transactional
     public InventarioResponseDTO crearProducto(InventarioRequestDTO request) {
         Inventario inventario = inventarioMapper.toEntity(request);
+        
+        if (request.getIdTipo() != null) {
+            TipoProducto tipoProducto = tipoProductoRepository.findById(request.getIdTipo())
+                .orElseThrow(() -> new ResourceNotFoundException("Tipo de producto no encontrado: " + request.getIdTipo()));
+            inventario.setTipoProducto(tipoProducto);
+        }
+        
         Inventario saved = inventarioRepository.save(inventario);
 
         // MÉTRICA — registrar creación de nuevo producto con su unidad de medida
         adaptabilidadMetricaService.registrarProductoCreado(
                 saved.getTipoMedida().name()
         );
+
+        // Log de auditoría: crear nuevo producto en inventario
+        try {
+            auditService.registrar(
+                AuditService.ACCION_CREAR,
+                AuditService.ENTIDAD_INVENTARIO,
+                saved.getIdAlimento(),
+                "Creación de nuevo producto en inventario: " + saved.getNombreAlimento(),
+                null,
+                "stockActual: " + saved.getStockActual() + ", stockMinimo: " + saved.getStockMinimo() + 
+                ", tipoMedida: " + saved.getTipoMedida() +
+                (request.getIdTipo() != null ? ", idTipo: " + request.getIdTipo() : "")
+            );
+        } catch (Exception e) {
+            System.err.println("Error al registrar log de auditoría para creación de producto: " + e.getMessage());
+        }
 
         if (saved.getStockActual() < saved.getStockMinimo()) {
             notificarStockMinimo(saved);
@@ -56,12 +83,46 @@ public class InventarioService {
         // MÉTRICA — inicio de medición
         long tiempoInicio = System.currentTimeMillis();
 
+        // Guardar valores anteriores para el log
+        String nombreAnterior = inventario.getNombreAlimento();
+        Double stockAnterior = inventario.getStockActual();
+        Double stockMinimoAnterior = inventario.getStockMinimo();
+        TipoMedida medidaAnterior = inventario.getTipoMedida();
+
+        // Actualizar tipo de producto si se proporciona idTipo
+        if (request.getIdTipo() != null) {
+            TipoProducto tipoProducto = tipoProductoRepository.findById(request.getIdTipo())
+                .orElseThrow(() -> new ResourceNotFoundException("Tipo de producto no encontrado: " + request.getIdTipo()));
+            inventario.setTipoProducto(tipoProducto);
+        } else {
+            inventario.setTipoProducto(null);
+        }
+
         inventarioMapper.updateEntity(inventario, request);
         Inventario saved = inventarioRepository.save(inventario);
 
         // MÉTRICA — fin de medición, registrar duración
         long duracionMs = System.currentTimeMillis() - tiempoInicio;
         modularidadMetricaService.registrarActualizacion(duracionMs);
+
+        // Log de auditoría: actualizar producto
+        try {
+            String detalles = String.format("nombre: %s -> %s, stockActual: %.2f -> %.2f, stockMinimo: %.2f -> %.2f, tipoMedida: %s -> %s",
+                nombreAnterior, saved.getNombreAlimento(),
+                stockAnterior, saved.getStockActual(),
+                stockMinimoAnterior, saved.getStockMinimo(),
+                medidaAnterior, saved.getTipoMedida());
+            auditService.registrar(
+                AuditService.ACCION_ACTUALIZAR,
+                AuditService.ENTIDAD_INVENTARIO,
+                id,
+                "Actualización de producto: " + saved.getNombreAlimento(),
+                null,
+                detalles
+            );
+        } catch (Exception e) {
+            System.err.println("Error al registrar log de auditoría para actualización de producto: " + e.getMessage());
+        }
 
         if (saved.getStockActual() < saved.getStockMinimo()) {
             notificarStockMinimo(saved);
@@ -73,10 +134,27 @@ public class InventarioService {
     // Eliminar producto
     @Transactional
     public void eliminarProducto(Long id) {
-        if (!inventarioRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Producto no encontrado con ID: " + id);
-        }
+        Inventario inventario = inventarioRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Producto no encontrado con ID: " + id));
+        
+        String nombreProducto = inventario.getNombreAlimento();
+        Double stockFinal = inventario.getStockActual();
+
         inventarioRepository.deleteById(id);
+
+        // Log de auditoría: eliminar producto de inventario
+        try {
+            auditService.registrar(
+                AuditService.ACCION_ELIMINAR,
+                AuditService.ENTIDAD_INVENTARIO,
+                id,
+                "Eliminación de producto del inventario",
+                null,
+                "nombreAlimento: " + nombreProducto + ", stockFinal: " + stockFinal
+            );
+        } catch (Exception e) {
+            System.err.println("Error al registrar log de auditoría para eliminación de producto: " + e.getMessage());
+        }
     }
 
     // Obtener todos los productos
@@ -103,6 +181,13 @@ public class InventarioService {
     // Obtener productos más utilizados
     public List<InventarioResponseDTO> obtenerProductosMasUtilizados() {
         return inventarioRepository.findProductosMasUtilizados().stream()
+                .map(inventarioMapper::toResponseDTO)
+                .collect(Collectors.toList());
+    }
+
+    // Obtener productos por tipo
+    public List<InventarioResponseDTO> obtenerPorTipo(Long idTipo) {
+        return inventarioRepository.findByTipoProducto(idTipo).stream()
                 .map(inventarioMapper::toResponseDTO)
                 .collect(Collectors.toList());
     }
@@ -145,10 +230,26 @@ public class InventarioService {
             throw new ValidationException("La cantidad debe ser mayor a 0");
         }
 
+        Double stockAnterior = inventario.getStockActual();
         inventario.setStockActual(inventario.getStockActual() + cantidad);
         inventario.setFechaActualizacion(LocalDate.now());
 
         Inventario saved = inventarioRepository.save(inventario);
+
+        // Log de auditoría: agregar stock
+        try {
+            auditService.registrar(
+                AuditService.ACCION_ACTUALIZAR,
+                AuditService.ENTIDAD_INVENTARIO,
+                id,
+                "Agregar stock al producto: " + inventario.getNombreAlimento(),
+                "stockActual: " + stockAnterior,
+                "cantidadAgregada: " + cantidad + ", nuevoStock: " + inventario.getStockActual()
+            );
+        } catch (Exception e) {
+            System.err.println("Error al registrar log de auditoría para agregar stock: " + e.getMessage());
+        }
+
         return inventarioMapper.toResponseDTO(saved);
     }
 
@@ -176,12 +277,27 @@ public class InventarioService {
         // Llegó hasta aquí = consumo válido
         integridadStockMetricaService.registrarAceptado();
 
+        Double stockAnterior = inventario.getStockActual();
         inventario.setUltimoConsumo(cantidad);
         inventario.setConsumoHoy(inventario.getConsumoHoy() + cantidad);
         inventario.setStockActual(inventario.getStockActual() - cantidad);
         inventario.setFechaActualizacion(LocalDate.now());
 
         Inventario saved = inventarioRepository.save(inventario);
+
+        // Log de auditoría: quitar stock (consumo)
+        try {
+            auditService.registrar(
+                AuditService.ACCION_ACTUALIZAR,
+                AuditService.ENTIDAD_INVENTARIO,
+                id,
+                "Quitar stock (consumo) del producto: " + inventario.getNombreAlimento(),
+                "stockAnterior: " + stockAnterior,
+                "cantidadQuitada: " + cantidad + ", nuevoStock: " + inventario.getStockActual()
+            );
+        } catch (Exception e) {
+            System.err.println("Error al registrar log de auditoría para quitar stock: " + e.getMessage());
+        }
 
         if (saved.getStockActual() < saved.getStockMinimo()) {
             notificarStockMinimo(saved);
@@ -194,10 +310,26 @@ public class InventarioService {
     @Transactional
     public void reiniciarConsumoDiario() {
         List<Inventario> inventarios = inventarioRepository.findAll();
+        int count = 0;
         for (Inventario inv : inventarios) {
             inv.setConsumoHoy(0.0);
             inv.setFechaActualizacion(LocalDate.now());
             inventarioRepository.save(inv);
+            count++;
+        }
+
+        // Log de auditoría: reinicio de consumo diario
+        try {
+            auditService.registrar(
+                AuditService.ACCION_ACTUALIZAR,
+                AuditService.ENTIDAD_INVENTARIO,
+                null,
+                "Reinicio de consumo diario de inventario",
+                null,
+                "Total de productos actualizados: " + count
+            );
+        } catch (Exception e) {
+            System.err.println("Error al registrar log de auditoría para reinicio de consumo: " + e.getMessage());
         }
     }
 
@@ -217,10 +349,43 @@ public class InventarioService {
             // MÉTRICA — correo enviado correctamente
             stockAlertaMetricaService.registrarExito();
 
+            // Log de auditoría: alerta de stock mínimo
+            try {
+                auditService.registrar(
+                    AuditService.ACCION_ACTUALIZAR,
+                    AuditService.ENTIDAD_INVENTARIO,
+                    inventario.getIdAlimento(),
+                    "Alerta de stock mínimo enviada",
+                    null,
+                    "producto: " + inventario.getNombreAlimento() + 
+                    ", stockActual: " + inventario.getStockActual() + 
+                    ", stockMinimo: " + inventario.getStockMinimo()
+                );
+            } catch (Exception e) {
+                System.err.println("Error al registrar log de auditoría para alerta de stock: " + e.getMessage());
+            }
+
         } catch (Exception e) {
             // MÉTRICA — el correo falló
             stockAlertaMetricaService.registrarFallo();
             System.err.println("Error al enviar notificación de stock mínimo: " + e.getMessage());
+            
+            // Log de auditoría: fallo al enviar alerta de stock mínimo
+            try {
+                auditService.registrar(
+                    AuditService.ACCION_ERROR,
+                    AuditService.ENTIDAD_INVENTARIO,
+                    inventario.getIdAlimento(),
+                    "Fallo al enviar alerta de stock mínimo",
+                    null,
+                    "producto: " + inventario.getNombreAlimento() + 
+                    ", stockActual: " + inventario.getStockActual() + 
+                    ", stockMinimo: " + inventario.getStockMinimo() + 
+                    ", error: " + e.getMessage()
+                );
+            } catch (Exception ex) {
+                System.err.println("Error al registrar log de auditoría para fallo de alerta: " + ex.getMessage());
+            }
         }
     }
 

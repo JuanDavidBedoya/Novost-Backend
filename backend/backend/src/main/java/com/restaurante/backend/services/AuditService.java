@@ -98,6 +98,56 @@ public class AuditService {
     }
 
     /**
+     * Extrae la información del usuario actual del SecurityContext.
+     */
+    private void agregarInfoUsuario(AuditLog auditLog) {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.isAuthenticated() 
+                && !"anonymousUser".equals(authentication.getPrincipal())) {
+                
+                // El principal puede ser UserDetailsConCedula, Usuario o String
+                Object principal = authentication.getPrincipal();
+                
+                String cedula = null;
+                String email = null;
+                
+                // Intentar obtener cédula mediante reflexión (para UserDetailsConCedula)
+                try {
+                    java.lang.reflect.Method getCedulaMethod = principal.getClass().getMethod("getCedula");
+                    cedula = (String) getCedulaMethod.invoke(principal);
+                } catch (Exception e) {
+                    // No tiene metodo getCedula, ignorar
+                }
+                
+                if (principal instanceof com.restaurante.backend.entities.Usuario) {
+                    com.restaurante.backend.entities.Usuario usuario = 
+                        (com.restaurante.backend.entities.Usuario) principal;
+                    cedula = usuario.getCedula();
+                    email = usuario.getEmail();
+                } else if (principal instanceof String) {
+                    email = (String) principal;
+                }
+                
+                if (email == null || email.isEmpty()) {
+                    email = authentication.getName();
+                }
+                
+                auditLog.setUsuarioCedula(cedula);
+                auditLog.setUsuarioEmail(email);
+                
+                authentication.getAuthorities().forEach(authority -> {
+                    if (auditLog.getUsuarioRol() == null) {
+                        auditLog.setUsuarioRol(authority.getAuthority());
+                    }
+                });
+            }
+        } catch (Exception e) {
+            log.warn("No se pudo obtener informacion del usuario: {}", e.getMessage());
+        }
+    }
+
+    /**
      * Registra un error en el log de auditoría.
      */
     @Transactional
@@ -139,40 +189,6 @@ public class AuditService {
     }
 
     /**
-     * Extrae la información del usuario actual del SecurityContext.
-     */
-    private void agregarInfoUsuario(AuditLog auditLog) {
-        try {
-            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication != null && authentication.isAuthenticated() 
-                && !"anonymousUser".equals(authentication.getPrincipal())) {
-                
-                // El principal puede ser un objeto Usuario o un String (email)
-                Object principal = authentication.getPrincipal();
-                
-                if (principal instanceof com.restaurante.backend.entities.Usuario) {
-                    com.restaurante.backend.entities.Usuario usuario = 
-                        (com.restaurante.backend.entities.Usuario) principal;
-                    auditLog.setUsuarioCedula(usuario.getCedula());
-                    auditLog.setUsuarioEmail(usuario.getEmail());
-                    auditLog.setUsuarioRol(usuario.getRol().getNombre());
-                } else if (principal instanceof String) {
-                    auditLog.setUsuarioEmail((String) principal);
-                }
-                
-                // Obtener roles del authentication
-                authentication.getAuthorities().forEach(authority -> {
-                    if (auditLog.getUsuarioRol() == null) {
-                        auditLog.setUsuarioRol(authority.getAuthority());
-                    }
-                });
-            }
-        } catch (Exception e) {
-            log.warn("No se pudo obtener información del usuario: {}", e.getMessage());
-        }
-    }
-
-    /**
      * Obtiene todos los logs ordenados por fecha descendente.
      */
     public List<AuditLog> obtenerTodos() {
@@ -204,8 +220,8 @@ public class AuditService {
      * Obtiene logs con paginación y filtros.
      */
     public Page<AuditLog> obtenerConFiltros(String usuarioCedula, String tipoEntidad, String accion,
-                                           LocalDateTime fechaInicio, LocalDateTime fechaFin,
-                                           Boolean exitoso, Pageable pageable) {
+                                            LocalDateTime fechaInicio, LocalDateTime fechaFin,
+                                            Boolean exitoso, Pageable pageable) {
         return auditLogRepository.buscarConFiltros(usuarioCedula, tipoEntidad, accion, 
                                                    fechaInicio, fechaFin, exitoso, pageable);
     }
@@ -251,7 +267,7 @@ public class AuditService {
      * Registra actualización de datos.
      */
     public void logActualizacion(String tipoEntidad, Long idEntidad, String descripcion, 
-                                String datosAnteriores, String datosNuevos) {
+                                 String datosAnteriores, String datosNuevos) {
         registrar(ACCION_ACTUALIZAR, tipoEntidad, idEntidad, descripcion, datosAnteriores, datosNuevos);
     }
 

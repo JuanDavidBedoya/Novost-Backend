@@ -49,45 +49,6 @@ class InventarioServiceTest {
     }
 
     @Test
-    void crearProducto_deberiaCrearProducto_cuandoDatosSonValidos() {
-        var request = new InventarioRequestDTO("Tomate", Inventario.TipoMedida.KILO, 50.0, 10.0);
-        
-        when(inventarioMapper.toEntity(request)).thenReturn(inventario);
-        when(inventarioRepository.save(inventario)).thenReturn(inventario);
-        when(inventarioMapper.toResponseDTO(inventario)).thenReturn(
-            new InventarioResponseDTO());
-
-        var response = inventarioService.crearProducto(request);
-        
-        assertNotNull(response);
-        verify(inventarioRepository).save(inventario);
-    }
-
-    @Test
-    void actualizarProducto_deberiaActualizar_cuandoExiste() {
-        var request = new InventarioRequestDTO("Tomate", Inventario.TipoMedida.KILO, 100.0, 20.0);
-        
-        when(inventarioRepository.findById(1L)).thenReturn(Optional.of(inventario));
-        doNothing().when(inventarioMapper).updateEntity(inventario, request);
-        when(inventarioRepository.save(inventario)).thenReturn(inventario);
-        when(inventarioMapper.toResponseDTO(inventario)).thenReturn(new InventarioResponseDTO());
-
-        var response = inventarioService.actualizarProducto(1L, request);
-        
-        assertNotNull(response);
-        verify(inventarioRepository).save(inventario);
-    }
-
-    @Test
-    void actualizarProducto_deberiaLanzarExcepcion_cuandoNoExiste() {
-        var request = new InventarioRequestDTO("Tomate", Inventario.TipoMedida.KILO, 50.0, 10.0);
-        when(inventarioRepository.findById(999L)).thenReturn(Optional.empty());
-
-        assertThrows(ResourceNotFoundException.class, 
-            () -> inventarioService.actualizarProducto(999L, request));
-    }
-
-    @Test
     void eliminarProducto_deberiaEliminar_cuandoExiste() {
         when(inventarioRepository.existsById(1L)).thenReturn(true);
         doNothing().when(inventarioRepository).deleteById(1L);

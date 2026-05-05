@@ -20,4 +20,5 @@ public class InventarioResponseDTO {
     private Double ultimoConsumo;
     private LocalDate fechaActualizacion;
     private Boolean belowMinStock;
+    private TipoProductoDTO tipoProducto;
 }
