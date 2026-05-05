@@ -4,7 +4,6 @@ import com.restaurante.backend.dtos.InventarioRequestDTO;
 import com.restaurante.backend.dtos.InventarioResponseDTO;
 import com.restaurante.backend.dtos.TipoProductoDTO;
 import com.restaurante.backend.entities.Inventario;
-import com.restaurante.backend.entities.TipoProducto;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
