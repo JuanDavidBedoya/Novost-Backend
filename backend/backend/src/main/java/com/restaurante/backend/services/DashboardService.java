@@ -2,9 +2,7 @@ package com.restaurante.backend.services;
 
 import com.restaurante.backend.dtos.*;
 import java.time.DayOfWeek;
-import com.restaurante.backend.entities.Pago;
 import com.restaurante.backend.entities.PagoPedido;
-import com.restaurante.backend.repositories.PagoRepository;
 import com.restaurante.backend.repositories.PagoPedidoRepository;
 import com.restaurante.backend.repositories.PedidoDetalleRepository;
 import com.restaurante.backend.repositories.PedidoRepository;
@@ -24,7 +22,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class DashboardService {
 
-    private final PagoRepository           pagoRepository;
     private final PagoPedidoRepository     pagoPedidoRepository;
     private final PedidoDetalleRepository  pedidoDetalleRepository;
     private final PedidoRepository          pedidoRepository;
@@ -34,57 +31,64 @@ public class DashboardService {
 
     public DashboardFinancieroDTO obtenerDatosFinancieros() {
         LocalDate hoy = LocalDate.now();
-
+ 
+        // Rangos de tiempo
         LocalDateTime inicioDia    = hoy.atStartOfDay();
         LocalDateTime finDia       = hoy.atTime(LocalTime.MAX);
         LocalDateTime inicioSemana = hoy.with(DayOfWeek.MONDAY).atStartOfDay();
         LocalDateTime finSemana    = hoy.with(DayOfWeek.SUNDAY).atTime(LocalTime.MAX);
-        LocalDateTime inicioAnio   = hoy.withDayOfYear(1).atStartOfDay();
-        LocalDateTime finAnio      = hoy.atTime(LocalTime.MAX);
-
-        List<Pago>       reservasHoy    = filtrarReservas(pagoRepository.findByFechaPagoBetween(inicioDia,    finDia));
-        List<Pago>       reservasSemana = filtrarReservas(pagoRepository.findByFechaPagoBetween(inicioSemana, finSemana));
-        List<Pago>       reservasAnio   = filtrarReservas(pagoRepository.findByFechaPagoBetween(inicioAnio,   finAnio));
-        List<PagoPedido> pedidosHoy     = filtrarPedidos(pagoPedidoRepository.findByFechaPagoBetween(inicioDia,    finDia));
-        List<PagoPedido> pedidosSemana  = filtrarPedidos(pagoPedidoRepository.findByFechaPagoBetween(inicioSemana, finSemana));
-        List<PagoPedido> pedidosAnio    = filtrarPedidos(pagoPedidoRepository.findByFechaPagoBetween(inicioAnio,   finAnio));
-
-        double kpiHoy    = sumaReservas(reservasHoy)    + sumaPedidos(pedidosHoy);
-        double kpiSemana = sumaReservas(reservasSemana) + sumaPedidos(pedidosSemana);
-        double kpiTotal  = sumaReservas(reservasAnio)   + sumaPedidos(pedidosAnio);
-
-        // Gráfica HOY por hora
-        Map<Integer, Double> porHoraRes = agruparReservasPorHora(reservasHoy);
-        Map<Integer, Double> porHoraPed = agruparPedidosPorHora(pedidosHoy);
+        LocalDateTime inicioMes    = hoy.withDayOfMonth(1).atStartOfDay();
+        LocalDateTime finMes       = hoy.atTime(LocalTime.MAX);
+ 
+        // Solo pagos confirmados (estadoPago = "PAGADO") de la entidad pago_pedido
+        List<PagoPedido> pagosHoy    = pagoPedidoRepository.findByFechaPagoBetweenAndEstadoPago(inicioDia,    finDia,    "PAGADO");
+        List<PagoPedido> pagosSemana = pagoPedidoRepository.findByFechaPagoBetweenAndEstadoPago(inicioSemana, finSemana, "PAGADO");
+        List<PagoPedido> pagosMes    = pagoPedidoRepository.findByFechaPagoBetweenAndEstadoPago(inicioMes,    finMes,    "PAGADO");
+ 
+        // ── KPIs ─────────────────────────────────────────────────────────────
+        double kpiHoy       = sumaMonto(pagosHoy);
+        double kpiHoyCaja   = sumaMontoMetodo(pagosHoy,    "CAJA");
+        double kpiHoyLinea  = sumaMontoMetodo(pagosHoy,    "LINEA");
+ 
+        double kpiSemana      = sumaMonto(pagosSemana);
+        double kpiSemanaCaja  = sumaMontoMetodo(pagosSemana, "CAJA");
+        double kpiSemanaLinea = sumaMontoMetodo(pagosSemana, "LINEA");
+ 
+        double kpiMes      = sumaMonto(pagosMes);
+        double kpiMesCaja  = sumaMontoMetodo(pagosMes, "CAJA");
+        double kpiMesLinea = sumaMontoMetodo(pagosMes, "LINEA");
+ 
+        // ── Gráfica HOY: ingresos por hora (07:00–23:00) ─────────────────────
+        Map<Integer, Double> porHora = agruparPorHora(pagosHoy);
         List<ChartDataDTO> chartHoy = new ArrayList<>();
-        for (int i = 12; i <= 23; i++) {
-            chartHoy.add(new ChartDataDTO(i + ":00",
-                    porHoraRes.getOrDefault(i, 0.0) + porHoraPed.getOrDefault(i, 0.0)));
+        for (int h = 7; h <= 23; h++) {
+            chartHoy.add(new ChartDataDTO(
+                String.format("%02d:00", h),
+                porHora.getOrDefault(h, 0.0)
+            ));
         }
-
-        // Gráfica SEMANA por día
-        Map<Integer, Double> porDiaRes = agruparReservasPorDia(reservasSemana);
-        Map<Integer, Double> porDiaPed = agruparPedidosPorDia(pedidosSemana);
+ 
+        // ── Gráfica SEMANA: ingresos por día (Lun–Dom) ───────────────────────
+        Map<Integer, Double> porDiaSemana = agruparPorDiaSemana(pagosSemana);
+        String[] diasSemana = {"", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"};
         List<ChartDataDTO> chartSemana = new ArrayList<>();
-        String[] dias = {"", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"};
-        for (int i = 1; i <= 7; i++) {
-            chartSemana.add(new ChartDataDTO(dias[i],
-                    porDiaRes.getOrDefault(i, 0.0) + porDiaPed.getOrDefault(i, 0.0)));
+        for (int d = 1; d <= 7; d++) {
+            chartSemana.add(new ChartDataDTO(diasSemana[d], porDiaSemana.getOrDefault(d, 0.0)));
         }
-
-        // Gráfica AÑO por mes
-        Map<Integer, Double> porMesRes = agruparReservasPorMes(reservasAnio);
-        Map<Integer, Double> porMesPed = agruparPedidosPorMes(pedidosAnio);
-        List<ChartDataDTO> chartMeses = new ArrayList<>();
-        String[] meses = {"", "Ene", "Feb", "Mar", "Abr", "May", "Jun",
-                               "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"};
-        for (int i = 1; i <= hoy.getMonthValue(); i++) {
-            chartMeses.add(new ChartDataDTO(meses[i],
-                    porMesRes.getOrDefault(i, 0.0) + porMesPed.getOrDefault(i, 0.0)));
+ 
+        // ── Gráfica MES: ingresos por día del mes (1–hoy) ────────────────────
+        Map<Integer, Double> porDiaMes = agruparPorDiaMes(pagosMes);
+        List<ChartDataDTO> chartMes = new ArrayList<>();
+        for (int d = 1; d <= hoy.getDayOfMonth(); d++) {
+            chartMes.add(new ChartDataDTO(String.valueOf(d), porDiaMes.getOrDefault(d, 0.0)));
         }
-
-        return new DashboardFinancieroDTO(kpiHoy, kpiSemana, kpiTotal,
-                chartHoy, chartSemana, chartMeses);
+ 
+        return new DashboardFinancieroDTO(
+            kpiHoy,    kpiHoyCaja,    kpiHoyLinea,
+            kpiSemana, kpiSemanaCaja, kpiSemanaLinea,
+            kpiMes,    kpiMesCaja,    kpiMesLinea,
+            chartHoy, chartSemana, chartMes
+        );
     }
 
     // ── Dashboard de Platos ───────────────────────────────────────────────────
@@ -222,6 +226,33 @@ public class DashboardService {
                 chartPedidos, chartReservas, reservasPorEstado);
     }
 
+    public CierreCajaDTO obtenerCierreCaja() {
+        LocalDate hoy = LocalDate.now();
+        LocalDateTime inicioDia = hoy.atStartOfDay();
+        LocalDateTime finDia    = hoy.atTime(LocalTime.MAX);
+ 
+        List<PagoPedido> pagosHoy = pagoPedidoRepository
+            .findByFechaPagoBetweenAndEstadoPago(inicioDia, finDia, "PAGADO");
+ 
+        List<PagoPedido> caja  = pagosHoy.stream()
+            .filter(p -> "CAJA".equalsIgnoreCase(p.getMetodoPago()))
+            .collect(Collectors.toList());
+ 
+        List<PagoPedido> linea = pagosHoy.stream()
+            .filter(p -> "LINEA".equalsIgnoreCase(p.getMetodoPago()))
+            .collect(Collectors.toList());
+ 
+        return new CierreCajaDTO(
+            hoy,
+            sumaMonto(pagosHoy),
+            sumaMonto(caja),
+            sumaMonto(linea),
+            pagosHoy.size(),
+            caja.size(),
+            linea.size()
+        );
+    }
+
     /**
      * MySQL DAYOFWEEK: 1=Dom, 2=Lun ... 7=Sáb
      * Lo convertimos a:  1=Lun, 2=Mar ... 7=Dom
@@ -232,43 +263,42 @@ public class DashboardService {
 
     // ── Helpers privados ──────────────────────────────────────────────────────
 
-    private List<Pago> filtrarReservas(List<Pago> pagos) {
+    private double sumaMonto(List<PagoPedido> pagos) {
+        return pagos.stream().mapToDouble(PagoPedido::getMonto).sum();
+    }
+ 
+    private double sumaMontoMetodo(List<PagoPedido> pagos, String metodo) {
         return pagos.stream()
-                .filter(p -> "succeeded".equalsIgnoreCase(p.getEstadoPago()))
-                .collect(Collectors.toList());
+            .filter(p -> metodo.equalsIgnoreCase(p.getMetodoPago()))
+            .mapToDouble(PagoPedido::getMonto)
+            .sum();
     }
-
-    private List<PagoPedido> filtrarPedidos(List<PagoPedido> pagos) {
-        return pagos.stream()
-                .filter(p -> "PAGADO".equalsIgnoreCase(p.getEstadoPago()))
-                .collect(Collectors.toList());
+ 
+    private Map<Integer, Double> agruparPorHora(List<PagoPedido> pagos) {
+        return pagos.stream().collect(
+            Collectors.groupingBy(
+                p -> p.getFechaPago().getHour(),
+                Collectors.summingDouble(PagoPedido::getMonto)
+            )
+        );
     }
-
-    private double sumaReservas(List<Pago> p)       { return p.stream().mapToDouble(Pago::getMonto).sum(); }
-    private double sumaPedidos(List<PagoPedido> p)   { return p.stream().mapToDouble(PagoPedido::getMonto).sum(); }
-
-    private Map<Integer, Double> agruparReservasPorHora(List<Pago> p) {
-        return p.stream().collect(Collectors.groupingBy(
-                x -> x.getFechaPago().getHour(), Collectors.summingDouble(Pago::getMonto)));
+ 
+    private Map<Integer, Double> agruparPorDiaSemana(List<PagoPedido> pagos) {
+        // DayOfWeek.getValue(): 1=Lun … 7=Dom
+        return pagos.stream().collect(
+            Collectors.groupingBy(
+                p -> p.getFechaPago().getDayOfWeek().getValue(),
+                Collectors.summingDouble(PagoPedido::getMonto)
+            )
+        );
     }
-    private Map<Integer, Double> agruparPedidosPorHora(List<PagoPedido> p) {
-        return p.stream().collect(Collectors.groupingBy(
-                x -> x.getFechaPago().getHour(), Collectors.summingDouble(PagoPedido::getMonto)));
-    }
-    private Map<Integer, Double> agruparReservasPorDia(List<Pago> p) {
-        return p.stream().collect(Collectors.groupingBy(
-                x -> x.getFechaPago().getDayOfWeek().getValue(), Collectors.summingDouble(Pago::getMonto)));
-    }
-    private Map<Integer, Double> agruparPedidosPorDia(List<PagoPedido> p) {
-        return p.stream().collect(Collectors.groupingBy(
-                x -> x.getFechaPago().getDayOfWeek().getValue(), Collectors.summingDouble(PagoPedido::getMonto)));
-    }
-    private Map<Integer, Double> agruparReservasPorMes(List<Pago> p) {
-        return p.stream().collect(Collectors.groupingBy(
-                x -> x.getFechaPago().getMonthValue(), Collectors.summingDouble(Pago::getMonto)));
-    }
-    private Map<Integer, Double> agruparPedidosPorMes(List<PagoPedido> p) {
-        return p.stream().collect(Collectors.groupingBy(
-                x -> x.getFechaPago().getMonthValue(), Collectors.summingDouble(PagoPedido::getMonto)));
+ 
+    private Map<Integer, Double> agruparPorDiaMes(List<PagoPedido> pagos) {
+        return pagos.stream().collect(
+            Collectors.groupingBy(
+                p -> p.getFechaPago().getDayOfMonth(),
+                Collectors.summingDouble(PagoPedido::getMonto)
+            )
+        );
     }
 }

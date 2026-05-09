@@ -28,7 +28,7 @@ public class PagoPedido {
     @Column(name = "metodo_pago", nullable = false) // "CAJA" o "LINEA"
     private String metodoPago;
 
-    @Column(name = "estado_pago", nullable = false) // "PAGADO", "PENDIENTE"
+    @Column(name = "estado_pago", nullable = false) 
     private String estadoPago;
 
     @Column(name = "monto", nullable = false)

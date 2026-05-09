@@ -17,4 +17,7 @@ public interface PagoPedidoRepository extends JpaRepository<PagoPedido, Long> {
     //Encontrar pedido por fecha de pago
 
     List<PagoPedido> findByFechaPagoBetween(LocalDateTime start, LocalDateTime end);
+
+    List<PagoPedido> findByFechaPagoBetweenAndEstadoPago(
+    LocalDateTime inicio, LocalDateTime fin, String estadoPago);
 }

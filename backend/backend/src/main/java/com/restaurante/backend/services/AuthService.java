@@ -58,40 +58,45 @@ public class AuthService {
     @Value("${google.recaptcha.secret}")
     private String recaptchaSecret;
 
-   @Transactional
-    public void iniciarLogin(LoginRequestDTO request) {
-        Usuario usuario = usuarioRepository.findByEmail(request.email())
-                .orElseThrow(() -> new RuntimeException("password:Datos incorrectos"));
+    @Transactional
+        public void iniciarLogin(LoginRequestDTO request) {
+            Usuario usuario = usuarioRepository.findByEmail(request.email())
+                    .orElseThrow(() -> new RuntimeException("password:Datos incorrectos"));
 
-        // Bloquea el login si la cuenta está desactivada
-        if (UsuarioService.CUENTA_DESACTIVADA.equals(usuario.getTokenRecuperacion())) {
-            throw new RuntimeException("password:Esta cuenta ha sido dada de baja.");
-        }
-
-        if (!passwordEncoder.matches(request.password(), usuario.getContrasenia())) {
-            // Log de auditoría: intento de login fallido (password incorrecto)
-            try {
-                auditService.registrar(
-                    AuditService.ACCION_ERROR,
-                    AuditService.ENTIDAD_AUTENTICACION,
-                    null,
-                    "Intento de login fallido - Password incorrecto",
-                    null,
-                    "Email: " + request.email() + ", Cedula: " + usuario.getCedula()
-                );
-            } catch (Exception e) {
-                System.err.println("Error al registrar log de auditoría para login fallido: " + e.getMessage());
+            // 1. Verificar contraseña PRIMERO, antes de hacer cualquier otra cosa
+            if (!passwordEncoder.matches(request.password(), usuario.getContrasenia())) {
+                try {
+                    auditService.registrar(
+                        AuditService.ACCION_ERROR,
+                        AuditService.ENTIDAD_AUTENTICACION,
+                        null,
+                        "Intento de login fallido - Password incorrecto",
+                        null,
+                        "Email: " + request.email() + ", Cedula: " + usuario.getCedula()
+                    );
+                } catch (Exception e) {
+                    System.err.println("Error al registrar auditoría para login fallido: " + e.getMessage());
+                }
+                throw new RuntimeException("password:Datos incorrectos");
             }
-            throw new RuntimeException("password:Datos incorrectos");
+
+            // 2. Contraseña correcta — determinar si es reactivación y generar código
+            boolean cuentaDesactivada = UsuarioService.CUENTA_DESACTIVADA
+                    .equals(usuario.getTokenRecuperacion());
+
+            String codigo2FA = cuentaDesactivada
+                    ? "R-" + String.format("%06d", new Random().nextInt(999999))
+                    : String.format("%06d", new Random().nextInt(999999));
+
+            usuario.setCodigoVerificacion(codigo2FA);
+            usuario.setExpiracionCodigo(LocalDateTime.now().plusMinutes(2));
+            usuarioRepository.save(usuario);
+
+            // 3. Enviar solo los 6 dígitos al correo, sin el prefijo
+            emailService.enviarCodigoVerificacion(
+                    usuario.getEmail(), usuario.getNombre(),
+                    codigo2FA.replace("R-", ""));
         }
-
-        String codigo2FA = String.format("%06d", new Random().nextInt(999999));
-        usuario.setCodigoVerificacion(codigo2FA);
-        usuario.setExpiracionCodigo(LocalDateTime.now().plusMinutes(2));
-        usuarioRepository.save(usuario);
-
-        emailService.enviarCodigoVerificacion(usuario.getEmail(), usuario.getNombre(), codigo2FA);
-    }
 
     // Método verificarCodigo: valida código 2FA, genera token JWT y retorna usuario autenticado
 
@@ -100,12 +105,25 @@ public class AuthService {
         Usuario usuario = usuarioRepository.findByEmail(request.email())
                 .orElseThrow(() -> new RuntimeException("codigo:Datos incorrectos"));
 
-        if (usuario.getCodigoVerificacion() == null || !usuario.getCodigoVerificacion().equals(request.codigo())) {
+        String codigoGuardado = usuario.getCodigoVerificacion();
+        boolean esReactivacion = codigoGuardado != null && codigoGuardado.startsWith("R-");
+        
+        // Para comparar, usamos el código sin prefijo
+        String codigoReal = esReactivacion 
+                ? codigoGuardado.substring(2) 
+                : codigoGuardado;
+
+        if (codigoReal == null || !codigoReal.equals(request.codigo())) {
             throw new RuntimeException("codigo:Código de verificación incorrecto o expirado");
         }
 
         if (usuario.getExpiracionCodigo().isBefore(LocalDateTime.now())) {
             throw new RuntimeException("codigo:Código de verificación incorrecto o expirado");
+        }
+
+        // Si es reactivación, limpiar el tokenRecuperacion aquí (momento seguro)
+        if (esReactivacion) {
+            usuario.setTokenRecuperacion(null);
         }
 
         usuario.setCodigoVerificacion(null);
@@ -137,7 +155,7 @@ public class AuthService {
             System.err.println("Error al registrar log de auditoría para login: " + e.getMessage());
         }
         
-        return new AuthResponseDTO(token, dto);
+        return new AuthResponseDTO(token, dto, esReactivacion);
     }
 
     // Método registrar: valida reCAPTCHA y duplicados, crea usuario cliente con rol asignado

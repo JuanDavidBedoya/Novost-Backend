@@ -26,4 +26,5 @@ public interface PagoRepository extends JpaRepository<Pago, Long> {
     // Método findByFechaPagoBetween: obtiene pagos realizados en un rango de fechas
 
     List<Pago> findByFechaPagoBetween(LocalDateTime start, LocalDateTime end);
+
 }
