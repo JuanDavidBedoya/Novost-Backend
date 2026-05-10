@@ -279,8 +279,8 @@ public class AuthService {
             System.err.println("Error al registrar log de auditoría para recuperación de password: " + e.getMessage());
         }
 
-        //String link = "https://frontend-app-967697766235.us-central1.run.app/restaurar-password?token=" + token;
-        String link = "http://localhost:5173/restaurar-password?token=" + token;
+        String link = "https://frontend-app-967697766235.us-central1.run.app/restaurar-password?token=" + token;
+        //String link = "http://localhost:5173/restaurar-password?token=" + token;
 
         emailService.enviarRecuperacionPassword(usuario.getEmail(), usuario.getNombre(), link);
     }

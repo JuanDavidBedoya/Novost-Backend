@@ -50,7 +50,7 @@ class InventarioServiceTest {
 
     @Test
     void eliminarProducto_deberiaEliminar_cuandoExiste() {
-        when(inventarioRepository.existsById(1L)).thenReturn(true);
+        when(inventarioRepository.findById(1L)).thenReturn(Optional.of(inventario));
         doNothing().when(inventarioRepository).deleteById(1L);
 
         assertDoesNotThrow(() -> inventarioService.eliminarProducto(1L));
@@ -59,7 +59,7 @@ class InventarioServiceTest {
 
     @Test
     void eliminarProducto_deberiaLanzarExcepcion_cuandoNoExiste() {
-        when(inventarioRepository.existsById(999L)).thenReturn(false);
+        when(inventarioRepository.findById(999L)).thenReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class, 
             () -> inventarioService.eliminarProducto(999L));
